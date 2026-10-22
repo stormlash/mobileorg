@@ -32,7 +32,7 @@
             ActionType = "Xcode.IDEStandardExecutionActionsCore.ExecutionActionType.ShellScriptAction">
             <ActionContent
                title = "Start WebDAV Server"
-               scriptText = "# exec &gt; ~/prebuild.log 2&gt;&amp;1&#10;testfolder=${SRCROOT}/MobileOrgTests/Resources/WebDavTests&#10;if $(docker inspect phylor/webdav-ssl &gt;/dev/null 2&gt;&amp;1); then&#10;echo &quot;Image does exist&quot;;&#10;else&#10;echo &quot;Image does not exist&quot;&#10;docker pull phylor/webdav-ssl&#10;fi&#10;&#10;docker run -d --name mobileOrg-webDAV -v $testfolder/htpasswd:/htpasswd -v $testfolder/certs:/certs -v $testfolder/content:/var/www -h mobileOrgWebDav.schnuddelhuddel.de -p 32773:443 phylor/webdav-ssl&#10;"
+               scriptText = "&quot;$SRCROOT/Scripts/WebDAV-Server-Start.sh&quot;&#10;"
                shellToInvoke = "/bin/sh">
                <EnvironmentBuildable>
                   <BuildableReference
@@ -51,7 +51,7 @@
             ActionType = "Xcode.IDEStandardExecutionActionsCore.ExecutionActionType.ShellScriptAction">
             <ActionContent
                title = "Stop WebDAV Server"
-               scriptText = "docker stop mobileOrg-webDAV&#10;docker rm mobileOrg-webDAV&#10;"
+               scriptText = "&quot;$SRCROOT/Scripts/WebDAV-Server-Stop.sh&quot;&#10;"
                shellToInvoke = "/bin/sh">
                <EnvironmentBuildable>
                   <BuildableReference

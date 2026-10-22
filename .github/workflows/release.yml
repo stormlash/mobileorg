@@ -141,10 +141,33 @@ jobs:
             -allowProvisioningUpdates \
             -authenticationKeyPath "$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8" \
             -authenticationKeyID "$ASC_KEY_ID" \
-            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            2>&1 | tee /tmp/xcodebuild-export.log
           ipa="$(find build/export -name '*.ipa' | head -n1)"
           [ -n "$ipa" ] || { echo "no IPA produced by exportArchive" >&2; exit 1; }
           echo "ipa_path=$ipa" >> "$GITHUB_OUTPUT"
+
+      # Evidence, not guesswork: when any delivery step fails, preserve the
+      # xcdistributionlogs bundle (the authoritative IDEDistribution log) and
+      # both step logs as a run artifact before the job ends.
+      - name: Collect distribution diagnostics on failure
+        if: failure() && steps.creds.outputs.delivery_enabled == 'true'
+        run: |
+          mkdir -p build/diagnostics
+          find "${TMPDIR:-/tmp}" -maxdepth 1 -name '*.xcdistributionlogs' \
+            -exec cp -R {} build/diagnostics/ \; 2>/dev/null || true
+          cp -f /tmp/xcodebuild-archive.log /tmp/xcodebuild-export.log \
+            build/diagnostics/ 2>/dev/null || true
+          ls -la build/diagnostics/
+
+      - name: Upload distribution diagnostics
+        if: failure() && steps.creds.outputs.delivery_enabled == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-diagnostics-${{ github.run_number }}
+          path: build/diagnostics
+          if-no-files-found: ignore
+          retention-days: 7
 
       # pilot waits for App Store Connect processing by default;
       # wait_processing_timeout_duration bounds the wait so a stalled

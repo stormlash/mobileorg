@@ -98,6 +98,30 @@
    - Web:  http://mobileorg.github.io
    - IRC: #mobileorg on freenode
    - Gitter: https://gitter.im/MobileOrg/Lobby
+* Releases (TestFlight)
+
+Merging a PR into =develop= delivers the app: the
+[[file:.github/workflows/release.yml][release workflow]] archives in the AppStore
+configuration, gates, and uploads to TestFlight — no manual steps. Builds
+appear on TestFlight within minutes of the merge.
+
+- Build number = =git rev-list HEAD --count=, stamped by the bundle-version
+  build phase; re-running the same commit is rejected as a duplicate build.
+- Signing uses the App Store Connect API key (repo secrets
+  =APP_STORE_CONNECT_KEY_ID=, =APP_STORE_CONNECT_ISSUER_ID=,
+  =APP_STORE_CONNECT_P8=) with =xcodebuild -allowProvisioningUpdates= cloud
+  signing — no certificates or profiles live in the repo.
+- [[file:Scripts/release-preflight-gate.sh][Scripts/release-preflight-gate.sh]] fails the run before upload if any
+  linked binary references UIWebView (ITMS-90809) or the app bundle lacks a
+  valid privacy manifest declaring its required-reason APIs
+  (=MobileOrg/PrivacyInfo.xcprivacy=, ITMS-91053).
+- If the upload or build processing stalls, the signed IPA (with dSYMs) is
+  attached to the failed run as =testflight-fallback-ipa-<n>= for manual
+  re-upload.
+- Without the secrets configured, the job passes with
+  "delivery disabled: secrets not configured" and builds nothing.
+- Manual delivery: Actions → Release (TestFlight) → Run workflow.
+
 * Changelog
   See: https://github.com/MobileOrg/mobileorg.github.io/issues/1
 * Credits

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- App Store Connect distribution. "app-store-connect" is the current
+	     method name (plain "app-store" is deprecated since Xcode 15).
+	     signingStyle automatic + `xcodebuild -allowProvisioningUpdates` with
+	     the ASC API key lets xcodebuild fetch the plain (no-capability)
+	     profile and cloud-sign the archive; no cert or profile lives in the
+	     repo. The app's entitlements file is an empty dict, so the profile
+	     must equally carry no capabilities. -->
+	<key>method</key>
+	<string>app-store-connect</string>
+	<key>teamID</key>
+	<string>3FR7GBKYPW</string>
+	<key>signingStyle</key>
+	<string>automatic</string>
+	<key>uploadSymbols</key>
+	<true/>
+</dict>
+</plist>

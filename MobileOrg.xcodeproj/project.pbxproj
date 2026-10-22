@@ -123,6 +123,7 @@
 		8322ED8C176AF1C7008B37C7 /* table_gray@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 8322ED86176AF1C6008B37C7 /* table_gray@2x.png */; };
 		83B1312C234AD16D0043D955 /* CloudKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 83B1312B234AD16D0043D955 /* CloudKit.framework */; };
 		D065065E307B22E500EC8FCE /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = D065065D307B22E500EC8FCE /* SceneDelegate.swift */; };
+		83C0FFEE0000000000000002 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 83C0FFEE0000000000000001 /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -301,6 +302,7 @@
 		CECD59FA23B8D6C200348D89 /* MobileOrg-Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = "MobileOrg-Debug.xcconfig"; path = "Configuration/MobileOrg-Debug.xcconfig"; sourceTree = "<group>"; };
 		CECD59FB23B8D6C200348D89 /* MobileOrg-AppStore.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = "MobileOrg-AppStore.xcconfig"; path = "Configuration/MobileOrg-AppStore.xcconfig"; sourceTree = "<group>"; };
 		D065065D307B22E500EC8FCE /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
+		83C0FFEE0000000000000001 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = MobileOrg/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -388,6 +390,7 @@
 				743C12F51DFED5950051EC6F /* Launch Screen.storyboard */,
 				28AD733E0D9D9553002E5188 /* MainWindow.xib */,
 				799774AB122C69260006EFC6 /* MobileOrg-Info.plist */,
+				83C0FFEE0000000000000001 /* PrivacyInfo.xcprivacy */,
 			);
 			name = Resources;
 			sourceTree = "<group>";
@@ -874,6 +877,7 @@
 				7936F92A120DDF3F0062CF0E /* MainWindow-iPad.xib in Resources */,
 				6CB501F01E20C3D70082FD40 /* Settings.storyboard in Resources */,
 				7936FA91120DF4280062CF0E /* Entitlements.plist in Resources */,
+				83C0FFEE0000000000000002 /* PrivacyInfo.xcprivacy in Resources */,
 				8322ED6A176AB305008B37C7 /* press-sync@2x.png in Resources */,
 				8322ED6C176AE93E008B37C7 /* cant-sync-offline@2x.png in Resources */,
 				8322ED6E176AE94B008B37C7 /* please-configure@2x.png in Resources */,

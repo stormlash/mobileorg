@@ -149,7 +149,7 @@ class WebDavSyncTestCase: XCTestCase {
   // MARK: Control plane (plain HTTP on loopback)
 
   private func controlRequest(path: String, method: String) throws -> Data {
-    let request = URLRequest(url: URL(string: "\(WebDavFixture.controlHost)\(path)")!)
+    var request = URLRequest(url: URL(string: "\(WebDavFixture.controlHost)\(path)")!)
     request.httpMethod = method
     request.setValue("Basic \(basicAuthHeader)", forHTTPHeaderField: "Authorization")
     return try fixtureHttpSend(request, viaWebDavSession: false, description: path)
@@ -272,26 +272,35 @@ class WebDavSyncTestCase: XCTestCase {
   /// pattern (asyncAfter + generous deadline) with an actual completion
   /// expectation; the sync pipeline posts SyncComplete from any thread, and
   /// fulfillment is thread-safe.
-  func syncAndWait(timeout: TimeInterval = 60,
-                   file: StaticString = #filePath, line: UInt = #line) {
+  func syncAndWait(timeout: TimeInterval = 60) {
     let completed = makeSyncCompleteExpectation()
     SyncManager.instance().sync()
-    wait(for: [completed], timeout: timeout, file: file, line: line)
+    wait(for: [completed], timeout: timeout)
   }
 
   /// Poll the fixture log until at least `count` matching requests have been
-  /// observed (or fail on timeout).
+  /// observed (or fail on timeout). Polls the control plane from a background
+  /// timer instead of an NSPredicate expectation: the predicate-based
+  /// `expectation(for:evaluatedWith:)` API does not resolve on the Xcode 26
+  /// SDK (CI run 39871232366), and the timer form uses only APIs proven to
+  /// compile there.
   func waitForFixtureRequests(count: Int, method: String?, path: String, since: Int,
-                              timeout: TimeInterval = 30,
-                              file: StaticString = #filePath, line: UInt = #line) {
+                              timeout: TimeInterval = 30) {
     let description = method.map { "\(count)x \($0) \(path)" } ?? "requests to \(path)"
-    let predicate = NSPredicate { _, _ in
-      guard let entries = try? self.fixtureRequests(since: since) else { return false }
+    let seen = expectation(description: description)
+    let poller = DispatchSource.makeTimerSource(queue: DispatchQueue.global())
+    poller.schedule(deadline: .now(), repeating: 0.05)
+    poller.setEventHandler { [weak self] in
+      guard let self, let entries = try? self.fixtureRequests(since: since) else { return }
       let matching = entries.filter { $0.path == path && (method == nil || $0.method == method!) }
-      return matching.count >= count
+      if matching.count >= count {
+        seen.fulfill()
+        poller.cancel()
+      }
     }
-    wait(for: [expectation(for: predicate, evaluatedWith: nil, description: description)],
-         timeout: timeout, file: file, line: line)
+    poller.resume()
+    addTeardownBlock { poller.cancel() }
+    wait(for: [seen], timeout: timeout)
   }
 
   // MARK: Node-store assertions

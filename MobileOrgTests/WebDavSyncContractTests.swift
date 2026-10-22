@@ -254,13 +254,31 @@ class WebDavSyncTestCase: XCTestCase {
 
   // MARK: Sync orchestration
 
+  /// Fulfills an expectation at most once. SyncComplete is a process-wide
+  /// notification: sequential syncs in one test each register an observer,
+  /// and a later sync's post would re-fulfill the earlier (already-waited)
+  /// expectation — a second fulfill() is an NSInternalInconsistencyException.
+  private final class FulfillOnce {
+    private let lock = NSLock()
+    private var fired = false
+    func fulfill(_ expectation: XCTestExpectation, then sideEffect: () -> Void = {}) {
+      lock.lock()
+      if fired { lock.unlock(); return }
+      fired = true
+      lock.unlock()
+      sideEffect()
+      expectation.fulfill()
+    }
+  }
+
   /// Register a SyncComplete observer and return a fulfillable handle for
   /// waiting on an already-running sync.
   func makeSyncCompleteExpectation() -> XCTestExpectation {
     let completed = expectation(description: "SyncComplete")
+    let fulfiller = FulfillOnce()
     let observer = NotificationCenter.default.addObserver(
       forName: NSNotification.Name("SyncComplete"), object: nil, queue: nil) { _ in
-      completed.fulfill()
+      fulfiller.fulfill(completed)
     }
     addTeardownBlock {
       NotificationCenter.default.removeObserver(observer)
@@ -288,14 +306,14 @@ class WebDavSyncTestCase: XCTestCase {
                               timeout: TimeInterval = 30) {
     let description = method.map { "\(count)x \($0) \(path)" } ?? "requests to \(path)"
     let seen = expectation(description: description)
+    let fulfiller = FulfillOnce()
     let poller = DispatchSource.makeTimerSource(queue: DispatchQueue.global())
     poller.schedule(deadline: .now(), repeating: 0.05)
     poller.setEventHandler { [weak self] in
       guard let self, let entries = try? self.fixtureRequests(since: since) else { return }
       let matching = entries.filter { $0.path == path && (method == nil || $0.method == method!) }
       if matching.count >= count {
-        seen.fulfill()
-        poller.cancel()
+        fulfiller.fulfill(seen, then: { poller.cancel() })
       }
     }
     poller.resume()
@@ -444,9 +462,11 @@ final class WebDavSyncContractTests: WebDavSyncTestCase {
     waitForFixtureRequests(count: 1, method: "GET", path: "/scratchpad.org.txt", since: cutoff2)
     SyncManager.instance().abort()
 
-    // Whether the abort beat the download (failure path) or the transfer had
-    // already finished (completion path), the pipeline reports completion.
-    wait(for: [completed], timeout: 30)
+    // A completed scratchpad transfer posts SyncComplete (the import already
+    // happened); an abort that beat the transfer tears the pipeline down
+    // without ever reaching syncDone. Both outcomes are acceptable — wait
+    // bounded and judge the node store, not the completion signal.
+    _ = XCTWaiter.wait(for: [completed], timeout: 10)
 
     for name in ["home.org.txt", "work.org.txt"] {
       XCTAssertEqual(try nodeCount(inFile: name), manifest.files[name]!.count,

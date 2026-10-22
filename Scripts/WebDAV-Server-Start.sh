@@ -58,14 +58,28 @@ mkdir -p "$toolDir/bin"
 echo "Building the WebDAV fixture server (Tools/tinydav)"
 ( cd "$toolDir" && go build -mod=vendor -o bin/tinydav . )
 
+# Fresh throwaway certificate per launch. The certificate tracked in
+# MobileOrgTests/Resources/WebDavTests/certs is self-signed AND long expired
+# (2018); a modern URLSession may decline to let the app's trust-anything
+# challenge handler override an expired trust evaluation, so we no longer
+# rely on it. The app's challenge handler accepts any server certificate,
+# and the client trusts nothing here anyway.
+certDir=$(mktemp -d /tmp/mobileorg-tinydav-certs.XXXXXX)
+if ! openssl req -x509 -newkey rsa:2048 -nodes -days 2 \
+     -keyout "$certDir/web.key" -out "$certDir/web.crt" \
+     -subj "/CN=$host" >/dev/null 2>&1; then
+  echo "error: openssl is required to generate the fixture TLS certificate" >&2
+  exit 1
+fi
+
 echo "Starting WebDAV fixture on https://$host:$port"
 "$toolDir/bin/tinydav" \
   -root "$fixture/content" \
   -port "$port" \
   -user "$user" \
   -password "$password" \
-  -tls-cert "$fixture/certs/web.crt" \
-  -tls-key "$fixture/certs/web.key" \
+  -tls-cert "$certDir/web.crt" \
+  -tls-key "$certDir/web.key" \
   > "$logfile" 2>&1 &
 echo $! > "$pidfile"
 

@@ -4,8 +4,8 @@
 // fixture directory over HTTPS with HTTP basic auth, so any machine with a
 // Go toolchain can host the tests.
 //
-// The fixture TLS certificate in MobileOrgTests/Resources/WebDavTests/certs
-// is self-signed (and long expired); the app's URLSession challenge handler
+// The fixture serves a fresh throwaway TLS certificate per launch (see
+// Scripts/WebDAV-Server-Start.sh); the app's URLSession challenge handler
 // accepts any server certificate, as it did against the Docker server.
 //
 // Build with the vendored dependencies (no network access required):
@@ -50,10 +50,12 @@ func main() {
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !basicAuthOK(r, *user, *password) {
+			log.Printf("tinydav: %s %s from %s: 401 (missing or bad credentials)", r.Method, r.URL.Path, r.RemoteAddr)
 			w.Header().Set("WWW-Authenticate", `Basic realm="tinydav"`)
 			http.Error(w, "401 Unauthorized", http.StatusUnauthorized)
 			return
 		}
+		log.Printf("tinydav: %s %s from %s: authorized", r.Method, r.URL.Path, r.RemoteAddr)
 		dav.ServeHTTP(w, r)
 	})
 

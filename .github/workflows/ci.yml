@@ -122,10 +122,16 @@ jobs:
         if: always()
         run: ./Scripts/WebDAV-Server-Stop.sh
 
+      - name: Dump fixture request log
+        if: failure()
+        run: cat /tmp/mobileorg-tinydav.log || true
+
       - name: Upload raw test log on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: raw-webdav-test-log-${{ github.run_id }}
-          path: /tmp/xcodebuild-webdav.log
+          path: |
+            /tmp/xcodebuild-webdav.log
+            /tmp/mobileorg-tinydav.log
           if-no-files-found: ignore

@@ -21,12 +21,13 @@
 //
 
 #import <UIKit/UIKit.h>
+#import "MobileOrgAppDelegate.h"
 
 int main(int argc, char *argv[]) {
 
     @try {
         // Even though an integer return type is specified, this function never returns. 
-        int retVal = UIApplicationMain(argc, argv, nil, nil);
+        int retVal = UIApplicationMain(argc, argv, nil, NSStringFromClass([MobileOrgAppDelegate class]));
         return retVal;
     } @catch (NSException *exception) {
         NSLog(@"%@", exception.debugDescription);

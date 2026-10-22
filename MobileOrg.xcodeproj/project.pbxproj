@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 52;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -122,6 +122,7 @@
 		8322ED8B176AF1C7008B37C7 /* settings@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 8322ED85176AF1C4008B37C7 /* settings@2x.png */; };
 		8322ED8C176AF1C7008B37C7 /* table_gray@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 8322ED86176AF1C6008B37C7 /* table_gray@2x.png */; };
 		83B1312C234AD16D0043D955 /* CloudKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 83B1312B234AD16D0043D955 /* CloudKit.framework */; };
+		D065065E307B22E500EC8FCE /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = D065065D307B22E500EC8FCE /* SceneDelegate.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -299,6 +300,7 @@
 		CECD59F923B8D6C200348D89 /* MobileOrg-Shared.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = "MobileOrg-Shared.xcconfig"; path = "Configuration/MobileOrg-Shared.xcconfig"; sourceTree = "<group>"; };
 		CECD59FA23B8D6C200348D89 /* MobileOrg-Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = "MobileOrg-Debug.xcconfig"; path = "Configuration/MobileOrg-Debug.xcconfig"; sourceTree = "<group>"; };
 		CECD59FB23B8D6C200348D89 /* MobileOrg-AppStore.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = "MobileOrg-AppStore.xcconfig"; path = "Configuration/MobileOrg-AppStore.xcconfig"; sourceTree = "<group>"; };
+		D065065D307B22E500EC8FCE /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -547,6 +549,7 @@
 				79BA55601073A6F800D67917 /* Sync */,
 				79BA55611073A6F800D67917 /* Utilities */,
 				744787E11EB3198D00631BA2 /* PersistenceStack.swift */,
+				D065065D307B22E500EC8FCE /* SceneDelegate.swift */,
 			);
 			path = Classes;
 			sourceTree = "<group>";
@@ -920,7 +923,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "pbuddy=/usr/libexec/PlistBuddy\nAPIKEY=`/usr/libexec/PlistBuddy -c 'print :Dropbox\\ API\\ Key:AppKey' Configuration/AppKey.plist`\nAPISECRET=`/usr/libexec/PlistBuddy -c 'print :Dropbox\\ API\\ Key:AppSecret' Configuration/AppKey.plist`\n$pbuddy -c \"set :CFBundleURLTypes:0:CFBundleURLSchemes:0 db-${APIKEY}\" \"${TARGET_BUILD_DIR}/${INFOPLIST_PATH}\"\n";
+			shellScript = "pbuddy=/usr/libexec/PlistBuddy\nAPIKEY=`/usr/libexec/PlistBuddy -c 'print :Dropbox\\ API\\ Key:AppKey' Configuration/AppKey.plist`\nAPISECRET=`/usr/libexec/PlistBuddy -c 'print :Dropbox\\ API\\ Key:AppSecret' Configuration/AppKey.plist`\n$pbuddy -c \"set :CFBundleURLTypes:0:CFBundleURLSchemes:0 db-${APIKEY}\" \"${TARGET_BUILD_DIR}/${INFOPLIST_PATH}\" || true\n";
 		};
 		83E77D421E2727790049AB02 /* Update Bundle Version Script */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -966,6 +969,7 @@
 				54F9827F235A536C00CC6122 /* AddNoteViewController.swift in Sources */,
 				744787E21EB3198D00631BA2 /* PersistenceStack.swift in Sources */,
 				79CB19D21074423C00A7E065 /* ChecksumFileParser.m in Sources */,
+				D065065E307B22E500EC8FCE /* SceneDelegate.swift in Sources */,
 				549D4BC72417D27900039E1E /* PreviewViewController.swift in Sources */,
 				79CB19D51074424300A7E065 /* OrgFileParser.m in Sources */,
 				6CB501F21E20C3D70082FD40 /* SyncSettingsController.swift in Sources */,
@@ -1021,6 +1025,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = CECD59FA23B8D6C200348D89 /* MobileOrg-Debug.xcconfig */;
 			buildSettings = {
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 			};
 			name = Debug;
 		};
@@ -1028,6 +1033,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = CECD59F723B8D6C200348D89 /* MobileOrgTests-Debug.xcconfig */;
 			buildSettings = {
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 			};
 			name = Debug;
 		};
@@ -1035,6 +1041,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = CECD59F823B8D6C200348D89 /* MobileOrgTests-AdHoc.xcconfig */;
 			buildSettings = {
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 			};
 			name = AdHoc;
 		};
@@ -1042,6 +1049,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = CECD59F423B8D6C200348D89 /* MobileOrgTests-AppStore.xcconfig */;
 			buildSettings = {
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 			};
 			name = AppStore;
 		};
@@ -1055,6 +1063,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = CECD59F523B8D6C200348D89 /* MobileOrg-AdHoc.xcconfig */;
 			buildSettings = {
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 			};
 			name = AdHoc;
 		};
@@ -1068,6 +1077,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = CECD59FB23B8D6C200348D89 /* MobileOrg-AppStore.xcconfig */;
 			buildSettings = {
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 			};
 			name = AppStore;
 		};

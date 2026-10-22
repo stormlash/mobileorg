@@ -199,7 +199,15 @@ class OrgfileParserTests: XCTestCase {
     super.setUp()
     let context = setUpInMemoryManagedObjectContext()
     moc = context
-    // Put setup code here. This method is called before the invocation of each test method in the class.
+
+    // The parser treats a file as the index only when orgFilename matches
+    // Settings.indexFilename — in WebDAV mode, indexUrl's last path
+    // component. Without a configured index URL, isIndex stayed false for
+    // every test here, so #+TODO: keywords were never registered and
+    // index-dependent expectations silently degenerated (e.g. the heading
+    // fetches in testParseOrgFileDifferentTodoWords matched no nodes).
+    // Configure it the way a synced device would have it.
+    Settings.instance().indexUrl = URL(fileURLWithPath: "/MobileOrg/index.org")
   }
 
   override func tearDown() {

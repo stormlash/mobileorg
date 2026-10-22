@@ -1,169 +1,110 @@
 //
 //  WebDavTests.swift
-//  MobileOrg
+//  MobileOrgTests
 //
-//  Created by Mario Martelli on 27.04.17.
-//  Copyright © 2017 Sean Escriva. All rights reserved.
+//  Legacy-profile sync tests, retained for whole-import and encryption-path
+//  coverage (GPL-2.0, like the rest of the project).
 //
+//  Deflaked for the regression harness:
+//  * Each test resets the tinydav fixture to its pristine legacy profile and
+//    starts from a fresh in-memory store (WebDavSyncTestCase), so tests are
+//    order-independent — the old suite relied on testSyncChangesOnMobile
+//    running before testSyncChangesOnMobileReverse and sharing its mutated
+//    server state.
+//  * Fixed dispatch-after sleeps are gone; every sync waits on the real
+//    SyncComplete notification.
+//  * The magic 136-node total is asserted per file from the committed
+//    golden manifest instead of one coupled total.
+//
+//  The legacy fixture is encrypted (password "SchnuddelHuddel"; the app
+//  decrypts every org file when a password is configured), which is why this
+//  profile survives: it exercises the app's edits-file encryption path end
+//  to end.
 
 import XCTest
 import CoreData
 
 @testable import MobileOrg
 
-class WebDavTests: XCTestCase {
-  var moc:NSManagedObjectContext?
+final class WebDavTests: WebDavSyncTestCase {
 
   override func setUp() {
     super.setUp()
-
-    let context = setUpInMemoryManagedObjectContext()
-    moc = context
-
-
-    PersistenceStack.shared.moc = moc!
-
-    Settings.instance().serverMode = ServerModeWebDav
-    Settings.instance().username = "schnuddelhuddel"
-    Settings.instance().password = "schnuddelhuddel"
-    // Loopback IP literal, not the fixture hostname: the iOS 26 simulator's
-    // resolver does not consult the host's /etc/hosts, and the fixture name
-    // is a wildcard record pointing at GitHub Pages, so a hostname URL
-    // resolves to a server that is not the fixture and sync silently
-    // downloads nothing (CI run 39841570360).
-    Settings.instance().indexUrl = URL(string: "https://127.0.0.1:32773/index.org")
-    Settings.instance().encryptionPassword = "SchnuddelHuddel"
-
+    configureSyncTest(encryptionPassword: "SchnuddelHuddel")
   }
 
-  override func tearDown() {
-    // Put teardown code here. This method is called after the invocation of each test method in the class.
-    super.tearDown()
+  func testWebDAVSync() throws {
+    // Golden import of the frozen legacy fixture: per-file counts from the
+    // committed manifest (the old single 136 total is derivable from them,
+    // without coupling every future fixture edit to one magic number).
+    let manifest = try goldenManifest(profile: "legacy")
+    _ = try resetFixture(profile: "legacy")
+
+    syncAndWait()
+
+    assertNodeCounts(match: manifest)
+
+    // The frozen legacy edits file is encrypted but empty — decrypting it
+    // must succeed and import zero notes (the decryption path runs, there
+    // is simply nothing in it).
+    let notes = try XCTUnwrap(try moc?.fetch(NSFetchRequest<Note>(entityName: "Note")))
+    XCTAssertEqual(notes.count, 0)
   }
 
-  func testWebDAVSync() {
+  func testSyncChangesOnMobile() throws {
+    // Tag a parsed node, sync, and verify the round trip: exactly one
+    // edits-file upload, and the tag still applied after re-import.
+    let manifest = try goldenManifest(profile: "legacy")
+    _ = try resetFixture(profile: "legacy")
 
-    let syncExpectation = expectation(description: "Sync")
-    SyncManager.instance().sync()
+    syncAndWait()
+    assertNodeCounts(match: manifest)
 
-    let dispatchTime = DispatchTime.now() + Double(10000000000) / Double(NSEC_PER_SEC)
-    DispatchQueue.main.asyncAfter (deadline: dispatchTime,
-                                   execute: {
-                                    () -> (Void) in
+    let node = try fetchSingleNode(heading: "Seamless integration of Cloud services")
+    let tagEditor = TagEditController(node: node)
+    tagEditor?.recentTagString = "Test456"
+    tagEditor?.commitNewTag()
+    Save()
+    XCTAssertEqual(node.tags, ":Test456:")
 
-                                    do {
-                                      let fetchRequest = NSFetchRequest<Node>(entityName: "Node")
-                                      // fetchRequest.predicate = NSPredicate (format: "heading == %@", "on Level 1.1.1.5")
+    let cutoff = try latestSequence(after: 0)
+    syncAndWait()
 
-                                      let nodes = try self.moc!.fetch(fetchRequest)
-                                      syncExpectation.fulfill()
-                                      XCTAssertEqual(nodes.count, 136)
-
-                                    } catch _ { XCTFail() }
-    })
-
-    // Minimal CI stabilization for the audit's documented fixed-sleep
-    // pattern: the node-count assertion fires from a fixed asyncAfter, and
-    // the deadline must exceed it. CI evidence (runs 39844646908 and
-    // 39846649161): at a 4s tick the runner's full-file download has
-    // finished but the import is still mid-flight (42 of 136 nodes), so the
-    // tick needs to clear the whole serial-download-then-import cycle.
-    // Proper polled expectations are deferred to the regression-harness task.
-    waitForExpectations(timeout: 12, handler: nil)
-
+    let window = try fixtureRequests(since: cutoff)
+    XCTAssertEqual(window.filter { $0.method == "PUT" && $0.path == "/mobileorg.org" }.count, 1,
+                   "the tag edit must upload exactly one edits-file PUT (saw \(window))")
+    XCTAssertEqual(node.tags, ":Test456:")
   }
 
-  func testSyncChangesOnMobile() {
+  func testSyncChangesOnMobileReverse() throws {
+    // Applying then clearing a tag, each with its own sync, starting from
+    // pristine fixture state — no dependence on another test's leftovers.
+    let manifest = try goldenManifest(profile: "legacy")
+    _ = try resetFixture(profile: "legacy")
 
-    let syncExpectation = expectation(description: "Sync")
-    SyncManager.instance().sync()
+    syncAndWait()
+    assertNodeCounts(match: manifest)
 
-    let dispatchTime = DispatchTime.now() + Double(4000000000) / Double(NSEC_PER_SEC)
-    DispatchQueue.main.asyncAfter (deadline: dispatchTime,
-                                   execute: {
-                                    () -> (Void) in
+    let node = try fetchSingleNode(heading: "Seamless integration of Cloud services")
+    let tagEditor = TagEditController(node: node)
+    tagEditor?.recentTagString = "Test456"
+    tagEditor?.commitNewTag()
+    Save()
+    syncAndWait()
+    XCTAssertEqual(node.tags, ":Test456:")
 
-                                    do {
+    let removeEditor = TagEditController(node: node)
+    removeEditor?.recentTagString = ""
+    removeEditor?.commitNewTag()
+    Save()
+    XCTAssertEqual(node.tags, "::")
 
-                                      let fetchRequest = NSFetchRequest<Node>(entityName: "Node")
-                                      fetchRequest.predicate = NSPredicate (format: "heading == %@", "Seamless integration of Cloud services")
+    let cutoff = try latestSequence(after: 0)
+    syncAndWait()
 
-                                      let nodes = try self.moc!.fetch(fetchRequest)
-                                      print(nodes.count)
-                                      if nodes.count == 0 {
-                                        XCTFail()
-                                        return
-                                      }
-
-                                      // Make local changes and sync again
-                                      let tagEditController = TagEditController(node: nodes.first!)
-
-                                      tagEditController?.recentTagString = "Test456"
-                                      tagEditController?.commitNewTag()
-
-                                      Save()
-
-                                      SyncManager.instance().sync()
-                                      syncExpectation.fulfill()
-                                      XCTAssertEqual(nodes.first?.tags, ":Test456:")
-
-                                    } catch _ { XCTFail() }
-    })
-
-    waitForExpectations(timeout: 5, handler: nil)
-  }
-
-  func testSyncChangesOnMobileReverse() {
-
-    let syncExpectation = expectation(description: "Sync")
-    SyncManager.instance().sync()
-
-    let dispatchTime = DispatchTime.now() + Double(4000000000) / Double(NSEC_PER_SEC)
-    DispatchQueue.main.asyncAfter (deadline: dispatchTime,
-                                   execute: {
-                                    () -> (Void) in
-
-                                    do {
-
-                                      let fetchRequest = NSFetchRequest<Node>(entityName: "Node")
-                                      fetchRequest.predicate = NSPredicate (format: "heading == %@", "Seamless integration of Cloud services")
-
-                                      let nodes = try self.moc!.fetch(fetchRequest)
-
-                                      if nodes.count == 0 {
-                                        XCTFail()
-                                        return
-                                      }
-
-                                      // Make local changes and sync again
-                                      let tagEditController = TagEditController(node: nodes.first!)
-
-                                      tagEditController?.recentTagString = ""
-                                      tagEditController?.commitNewTag()
-                                      
-                                      Save()
-                                      
-                                      SyncManager.instance().sync()
-                                      syncExpectation.fulfill()
-                                      XCTAssertEqual(nodes.first?.tags, "::")
-                                      
-                                    } catch _ { XCTFail() }
-    })
-    
-    waitForExpectations(timeout: 5, handler: nil)
-  }
-  
-  func setUpInMemoryManagedObjectContext() -> NSManagedObjectContext {
-    let path = Bundle.main.path(forResource: "MobileOrg2", ofType: "momd")
-    let momURL = URL.init(fileURLWithPath: path!)
-    let managedObjectModel = NSManagedObjectModel.init(contentsOf: momURL)
-
-    let persistentStoreCoordinator = NSPersistentStoreCoordinator(managedObjectModel: managedObjectModel!)
-    try! persistentStoreCoordinator.addPersistentStore(ofType: NSInMemoryStoreType, configurationName: nil, at: nil, options: nil)
-    
-    let managedObjectContext = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
-    managedObjectContext.persistentStoreCoordinator = persistentStoreCoordinator
-    
-    return managedObjectContext
+    let window = try fixtureRequests(since: cutoff)
+    XCTAssertEqual(window.filter { $0.method == "PUT" && $0.path == "/mobileorg.org" }.count, 1,
+                   "the tag removal must upload exactly one edits-file PUT (saw \(window))")
+    XCTAssertEqual(node.tags, "::")
   }
 }

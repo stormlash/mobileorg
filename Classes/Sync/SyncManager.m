@@ -46,6 +46,8 @@
 - (void)downloadEditsFile;
 - (void)doneDownloadingEditsFile:(NSString*)editsFilename;
 - (void)doneUploadingLocalChanges;
+- (void)adoptMergedEditsFile;
+- (bool)mergedEditsFile:(NSString*)mergedFilename matchesServerFile:(NSString*)serverFilename;
 - (void)uploadEmptyEditsFile;
 - (void)doneUploadingEmptyEditsFile;
 - (void)syncOrgFiles;
@@ -114,6 +116,12 @@ static SyncManager *gInstance = NULL;
 // - Apply edits
 //
 - (void)sync {
+    if (syncInFlight) {
+        NSLog(@"SyncManager: sync already in flight, ignoring re-entrant call");
+        return;
+    }
+    syncInFlight = true;
+
     [[StatusViewController instance] show];
 
     [self syncLocalChanges];
@@ -121,10 +129,13 @@ static SyncManager *gInstance = NULL;
 
 - (void)abort {
     [[self transferManager] abort];
+    syncInFlight = false;
     [[StatusViewController instance] hide];
 }
 
 - (void)syncDone {
+    syncInFlight = false;
+
     [[StatusViewController instance] setActivityMessage:@"Done"];
     [[StatusViewController instance] setActionMessage:@""];
 
@@ -142,8 +153,12 @@ static SyncManager *gInstance = NULL;
 }
 
 - (bool)hasLocalChanges {
+    // Only unsynced local state counts: notes already uploaded in a previous
+    // sync (locallyModified == false) are the server's copy now. Counting
+    // them made every later sync re-download and re-upload the edits file
+    // even when nothing had changed.
     int count = 0;
-    count += CountNotes();
+    count += CountLocalNotes();
     count += CountLocalEditActions();
     return count > 0;
 }
@@ -312,7 +327,16 @@ static SyncManager *gInstance = NULL;
         [encryptedData writeToFile:newEditsFilename atomically:NO];
     }
 
-    // Send the file back to the server
+    // Send the file back to the server — unless this sync merged the local
+    // edits into the exact bytes the server already holds (the classic
+    // double-capture case). Uploading an identical file is a wasted round
+    // trip, so adopt the merge locally and continue without the upload.
+    if ([self mergedEditsFile:newEditsFilename matchesServerFile:downloadedEditsFilename]) {
+        [self adoptMergedEditsFile];
+        [self syncOrgFiles];
+        return;
+    }
+
     {
         currentState = SyncManagerTransferStateUploadingLocalChanges;
 
@@ -334,6 +358,16 @@ static SyncManager *gInstance = NULL;
     // ignore the checksum value and redownload it
     changedEditsFile = true;
 
+    [self adoptMergedEditsFile];
+
+    [self syncOrgFiles];
+}
+
+// Adopt the freshly merged edits file as the local mobileorg.org and clear
+// the pushed local state: edit actions and captured notes are now represented
+// in the merged copy, which applyEdits re-imports at the end of the sync.
+- (void)adoptMergedEditsFile {
+
     // Instead of redownloading the mobileorg.org file we just uploaded, pretend we did
     if ([[NSFileManager defaultManager] fileExistsAtPath:FileWithName(@"new-mobileorg.org")]) {
         NSError *e = nil;
@@ -352,8 +386,22 @@ static SyncManager *gInstance = NULL;
     });
     // If there were no errors, we can safely delete the new notes
     DeleteNotes();
+}
 
-    [self syncOrgFiles];
+// True when the merged edits file is byte-identical to the edits file this
+// sync downloaded from the server. Runs after the optional in-place
+// encryption above: unencrypted setups compare plaintext, encrypted setups
+// compare ciphertext (deterministic with the app's nil-IV CCCrypt, so an
+// identical merge under the same password still matches); anything else
+// falls through to the pre-existing upload.
+- (bool)mergedEditsFile:(NSString*)mergedFilename matchesServerFile:(NSString*)serverFilename {
+    NSData *merged = [NSData dataWithContentsOfFile:mergedFilename];
+    NSData *server = [NSData dataWithContentsOfFile:serverFilename];
+    if (!merged || !server) {
+        // When in doubt, upload — the pre-existing behavior.
+        return false;
+    }
+    return [merged isEqualToData:server];
 }
 
 - (void)uploadEmptyEditsFile {
@@ -529,9 +577,6 @@ static SyncManager *gInstance = NULL;
     }
 
     if (downloadFile) {
-
-        // First, delete the existing node and associated goodies if we already had it
-        DeleteNodesWithFilename(name);
 
         // Enque a fetch request to download this Org-file
         TransferContext *context = [TransferContext new];
@@ -741,6 +786,11 @@ static SyncManager *gInstance = NULL;
                     NSLog(@"Fix me, unsupported server mode!");
                     break;
             }
+            // The previous outline is replaced only once the replacement
+            // download has actually arrived: deleting earlier would leave
+            // the tree emptied out when a download is interrupted mid-flight.
+            DeleteNodesWithFilename(orgFilename);
+
             [self processOrgFile:orgFilename withLocalFile:[context localFile]];
             break;
         }

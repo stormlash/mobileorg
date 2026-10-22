@@ -41,7 +41,7 @@ if curl -k -s -o /dev/null --user "$user:$password" "https://$host:$port/"; then
 fi
 
 if ! command -v go >/dev/null 2>&1; then
-  for candidate in /usr/local/go/bin /opt/homebrew/bin; do
+  for candidate in /usr/local/go/bin /opt/homebrew/bin "$HOME/go/bin"; do
     if [ -x "$candidate/go" ]; then
       PATH="$candidate:$PATH"
       export PATH
@@ -72,14 +72,23 @@ if ! openssl req -x509 -newkey rsa:2048 -nodes -days 2 \
   exit 1
 fi
 
-echo "Starting WebDAV fixture on https://$host:$port"
+# Launch the fixture server against a THROWAWAY working copy of the pristine
+# profiles: tinydav's control plane (see Tools/tinydav/main.go) resets the
+# working root from the pristine directory per test, so test runs never mutate
+# the repository fixture data.
+pristineDir="$fixture/pristine"
+workRoot=$(mktemp -d /tmp/mobileorg-tinydav-content.XXXXXX)
+echo "Starting WebDAV fixture on https://$host:$port (profiles from $pristineDir)"
 "$toolDir/bin/tinydav" \
-  -root "$fixture/content" \
+  -root "$workRoot" \
   -port "$port" \
+  -control-port 32774 \
   -user "$user" \
   -password "$password" \
   -tls-cert "$certDir/web.crt" \
   -tls-key "$certDir/web.key" \
+  -pristine "$pristineDir" \
+  -initial-profile legacy \
   > "$logfile" 2>&1 &
 echo $! > "$pidfile"
 

@@ -135,6 +135,7 @@ jobs:
             -scheme 'All Tests' \
             -destination "$SIMULATOR_DESTINATION" \
             -only-testing:MobileOrgTests/WebDavTests \
+            -only-testing:MobileOrgTests/WebDavSyncContractTests \
             CODE_SIGNING_ALLOWED=NO \
             2>&1 | tee /tmp/xcodebuild-webdav.log | xcbeautify
 

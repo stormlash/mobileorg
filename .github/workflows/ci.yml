@@ -118,16 +118,35 @@ jobs:
             https://127.0.0.1:32773/index.org \
             schnuddelhuddel schnuddelhuddel
 
-      - name: Run WebDAV sync tests
+      # One xcodebuild invocation per test: each gets a fresh simulator app
+      # process. Run in one process, the tests share the host app's singleton
+      # SyncManager / PersistenceStack / UI-observer state, and CI evidence
+      # (runs 39850376043-rerun, 39855269543, 39857804846) shows cross-test
+      # interference: a tick-fired second sync swallowing the next test's
+      # initial sync on the shared transfer queue, and a Core Data
+      # change-processing crash ("attempt to insert nil") during
+      # testSyncChangesOnMobileReverse. Process isolation removes the
+      # cross-test dimension; in-test fixed-sleep windows remain as
+      # documented in WebDavTests.swift until the regression-harness task.
+      - name: Run WebDAV sync tests (one process per test)
         run: |
           set -o pipefail
-          xcodebuild test \
-            -project MobileOrg.xcodeproj \
-            -scheme 'All Tests' \
-            -destination "$SIMULATOR_DESTINATION" \
-            -only-testing:MobileOrgTests/WebDavTests \
-            CODE_SIGNING_ALLOWED=NO \
-            2>&1 | tee /tmp/xcodebuild-webdav.log | xcbeautify
+          FAILED=0
+          for TEST in \
+            MobileOrgTests/WebDavTests/testWebDAVSync \
+            MobileOrgTests/WebDavTests/testSyncChangesOnMobile \
+            MobileOrgTests/WebDavTests/testSyncChangesOnMobileReverse; do
+            LOG="/tmp/xcodebuild-webdav-${TEST##*/}.log"
+            echo "::group::xcodebuild test -only-testing:$TEST"
+            xcodebuild test \
+              -project MobileOrg.xcodeproj \
+              -scheme 'All Tests' \
+              -destination "$SIMULATOR_DESTINATION" \
+              -only-testing:"$TEST" \
+              CODE_SIGNING_ALLOWED=NO \
+              2>&1 | tee "$LOG" | xcbeautify || FAILED=1
+          done
+          exit $FAILED
 
       - name: Stop WebDAV fixture
         if: always()
@@ -143,6 +162,6 @@ jobs:
         with:
           name: raw-webdav-test-log-${{ github.run_id }}
           path: |
-            /tmp/xcodebuild-webdav.log
+            /tmp/xcodebuild-webdav-*.log
             /tmp/mobileorg-tinydav.log
           if-no-files-found: ignore

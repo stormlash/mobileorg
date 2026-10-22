@@ -1,0 +1,184 @@
+name: Release (TestFlight)
+
+# Delivery lane: a push to develop (i.e., a squash merge of a PR) is
+# archived, gated, and uploaded to TestFlight with zero manual steps.
+# Deliberately NOT triggered on pull_request — this lane signs and uploads,
+# and must only ever deliver from develop or a manual dispatch.
+on:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # Queue concurrent deliveries instead of cancelling a mid-flight upload.
+  cancel-in-progress: false
+
+env:
+  # Same toolchain pin as CI — see the note in ci.yml.
+  DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+
+jobs:
+  release:
+    name: Archive → gates → TestFlight
+    runs-on: macos-26
+    # Archive + upload are quick; most of the budget is the wait for
+    # App Store Connect processing (bounded by the pilot timeout below).
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The "Update Bundle Version Script" build phase runs
+          # `git rev-list HEAD --count` — it needs full history.
+          fetch-depth: 0
+
+      - name: Cache SwiftPM
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/org.swift.swiftpm
+          key: spm-${{ hashFiles('**/Package.resolved') }}
+          restore-keys: spm-
+
+      - name: Resolve SwiftPM dependencies
+        run: |
+          set -o pipefail
+          xcodebuild -resolvePackageDependencies \
+            -project MobileOrg.xcodeproj \
+            -scheme MobileOrg
+
+      # Graceful skip: without all three credentials the job PASSES with a
+      # clearly logged skip so develop stays green before the owner supplies
+      # them (Settings → Secrets and variables → Actions).
+      - name: Check delivery credentials
+        id: creds
+        env:
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          ASC_P8: ${{ secrets.APP_STORE_CONNECT_P8 }}
+        run: |
+          missing=()
+          [ -z "$ASC_KEY_ID" ] && missing+=(APP_STORE_CONNECT_KEY_ID)
+          [ -z "$ASC_ISSUER_ID" ] && missing+=(APP_STORE_CONNECT_ISSUER_ID)
+          [ -z "$ASC_P8" ] && missing+=(APP_STORE_CONNECT_P8)
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "delivery_enabled=false" >> "$GITHUB_OUTPUT"
+            echo "⏭️ Delivery disabled: secrets not configured."
+            echo "   Missing repo secrets: ${missing[*]}"
+            echo "   Configure them under Settings → Secrets and variables → Actions."
+            echo "   They come from App Store Connect → Users and Access → Integrations → App Store Connect API (team key)."
+          else
+            echo "delivery_enabled=true" >> "$GITHUB_OUTPUT"
+            echo "✅ App Store Connect credentials present."
+          fi
+
+      - name: Install App Store Connect API key
+        id: key
+        if: steps.creds.outputs.delivery_enabled == 'true'
+        env:
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          ASC_P8: ${{ secrets.APP_STORE_CONNECT_P8 }}
+        run: |
+          set -euo pipefail
+          # $HOME/private_keys is xcodebuild's default .p8 search location;
+          # we still pass -authenticationKeyPath explicitly below.
+          mkdir -p "$HOME/private_keys" "$RUNNER_TEMP/asc"
+          printf '%s' "$ASC_P8" > "$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8"
+          chmod 600 "$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8"
+          # fastlane pilot reads the same credential as a JSON file
+          # (docs.fastlane.tools/app-store-connect-api/#using-fastlane-api-key-json-file).
+          jq -n --arg key_id "$ASC_KEY_ID" --arg issuer_id "$ASC_ISSUER_ID" --arg key "$ASC_P8" \
+            '{key_id: $key_id, issuer_id: $issuer_id, key: $key}' \
+            > "$RUNNER_TEMP/asc/api_key.json"
+          chmod 600 "$RUNNER_TEMP/asc/api_key.json"
+          echo "key_json=$RUNNER_TEMP/asc/api_key.json" >> "$GITHUB_OUTPUT"
+
+      # Cloud signing: no certificate or profile lives in the repo. The app's
+      # entitlements file is an EMPTY dict, so -allowProvisioningUpdates with
+      # the API key fetches a plain (no-capability) profile. The AppStore
+      # configuration keeps CFBundleVersion numeric: the bundle-version build
+      # phase stamps `git rev-list HEAD --count` (Debug appends the branch
+      # name; App Store Connect rejects non-numeric build numbers).
+      - name: Archive (AppStore configuration)
+        if: steps.creds.outputs.delivery_enabled == 'true'
+        env:
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          set -o pipefail
+          xcodebuild archive \
+            -project MobileOrg.xcodeproj \
+            -scheme MobileOrg \
+            -configuration AppStore \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/MobileOrg.xcarchive \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            2>&1 | tee /tmp/xcodebuild-archive.log | xcbeautify
+
+      - name: Preflight gates (UIWebView scan + privacy manifest)
+        if: steps.creds.outputs.delivery_enabled == 'true'
+        run: ./Scripts/release-preflight-gate.sh build/MobileOrg.xcarchive
+
+      - name: Export signed IPA
+        id: export
+        if: steps.creds.outputs.delivery_enabled == 'true'
+        env:
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          set -o pipefail
+          xcodebuild -exportArchive \
+            -archivePath build/MobileOrg.xcarchive \
+            -exportPath build/export \
+            -exportOptionsPlist Configuration/ExportOptions-appstore.plist \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+          ipa="$(find build/export -name '*.ipa' | head -n1)"
+          [ -n "$ipa" ] || { echo "no IPA produced by exportArchive" >&2; exit 1; }
+          echo "ipa_path=$ipa" >> "$GITHUB_OUTPUT"
+
+      # pilot waits for App Store Connect processing by default;
+      # wait_processing_timeout_duration bounds the wait so a stalled
+      # processing state fails this step (and triggers the fallback artifact
+      # below) instead of burning the job clock.
+      - name: Upload to TestFlight and wait for processing
+        if: steps.creds.outputs.delivery_enabled == 'true'
+        env:
+          API_KEY_JSON: ${{ steps.key.outputs.key_json }}
+          IPA_PATH: ${{ steps.export.outputs.ipa_path }}
+        run: |
+          set -o pipefail
+          fastlane pilot upload \
+            --api_key_path "$API_KEY_JSON" \
+            --ipa "$IPA_PATH" \
+            --wait_processing_timeout_duration 2700 \
+            --verbose
+
+      # Fallback: if the upload or the processing wait failed, the signed IPA
+      # (plus dSYMs) is preserved as a run artifact for manual re-upload
+      # (Transporter, or Xcode Organizer). Not attached when the preflight
+      # gates or the export failed — a poisoned or unsigned binary is not
+      # worth preserving.
+      - name: Fallback — preserve signed IPA as artifact
+        if: failure() && steps.export.outputs.ipa_path != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: testflight-fallback-ipa-${{ github.run_number }}
+          path: |
+            build/export/*.ipa
+            build/export/*.dSYM
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Remove credential material
+        if: always()
+        run: rm -f "$HOME/private_keys"/AuthKey_*.p8 "$RUNNER_TEMP/asc/api_key.json"

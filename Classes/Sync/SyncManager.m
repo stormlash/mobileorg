@@ -195,6 +195,11 @@ static SyncManager *gInstance = NULL;
 
     [[StatusViewController instance] setActionMessage:@"Processing edits"];
 
+    // Remember where the server's mobileorg.org landed: the merge step
+    // compares the locally merged file against these bytes (the temp path
+    // is only handed to us here, not discoverable later).
+    downloadedEditsFilename = editsFilename;
+
     // Parse the changes file
     [editsFileParser setEditsFilename:editsFilename];
     [editsFileParser setCompletionSelector:@selector(doneProcessingEditsFile)];

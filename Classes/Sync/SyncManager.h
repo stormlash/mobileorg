@@ -45,6 +45,8 @@ typedef enum {
 
     NSMutableArray *downloadedFiles;
 
+    NSString *downloadedEditsFilename;
+
     NSString *transferState;
     NSString *transferFilename;
     int progressTotal;

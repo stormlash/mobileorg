@@ -46,7 +46,7 @@ class WebDavTests: XCTestCase {
     let syncExpectation = expectation(description: "Sync")
     SyncManager.instance().sync()
 
-    let dispatchTime = DispatchTime.now() + Double(4000000000) / Double(NSEC_PER_SEC)
+    let dispatchTime = DispatchTime.now() + Double(10000000000) / Double(NSEC_PER_SEC)
     DispatchQueue.main.asyncAfter (deadline: dispatchTime,
                                    execute: {
                                     () -> (Void) in
@@ -63,12 +63,13 @@ class WebDavTests: XCTestCase {
     })
 
     // Minimal CI stabilization for the audit's documented fixed-sleep
-    // pattern: the assertion closure fires from a 4s asyncAfter, so the
-    // expectation deadline must exceed it or the timeout wins the race on
-    // loaded runners (CI run 39844646908). The sibling tests already use a
-    // 4s sleep with a 5s deadline. Proper polled expectations are deferred
-    // to the regression-harness task.
-    waitForExpectations(timeout: 6, handler: nil)
+    // pattern: the node-count assertion fires from a fixed asyncAfter, and
+    // the deadline must exceed it. CI evidence (runs 39844646908 and
+    // 39846649161): at a 4s tick the runner's full-file download has
+    // finished but the import is still mid-flight (42 of 136 nodes), so the
+    // tick needs to clear the whole serial-download-then-import cycle.
+    // Proper polled expectations are deferred to the regression-harness task.
+    waitForExpectations(timeout: 12, handler: nil)
 
   }
 

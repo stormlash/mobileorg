@@ -62,7 +62,13 @@ class WebDavTests: XCTestCase {
                                     } catch _ { XCTFail() }
     })
 
-    waitForExpectations(timeout: 4, handler: nil)
+    // Minimal CI stabilization for the audit's documented fixed-sleep
+    // pattern: the assertion closure fires from a 4s asyncAfter, so the
+    // expectation deadline must exceed it or the timeout wins the race on
+    // loaded runners (CI run 39844646908). The sibling tests already use a
+    // 4s sleep with a 5s deadline. Proper polled expectations are deferred
+    // to the regression-harness task.
+    waitForExpectations(timeout: 6, handler: nil)
 
   }
 

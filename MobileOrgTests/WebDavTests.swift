@@ -78,7 +78,7 @@ class WebDavTests: XCTestCase {
     let syncExpectation = expectation(description: "Sync")
     SyncManager.instance().sync()
 
-    let dispatchTime = DispatchTime.now() + Double(10000000000) / Double(NSEC_PER_SEC)
+    let dispatchTime = DispatchTime.now() + Double(4000000000) / Double(NSEC_PER_SEC)
     DispatchQueue.main.asyncAfter (deadline: dispatchTime,
                                    execute: {
                                     () -> (Void) in
@@ -110,8 +110,7 @@ class WebDavTests: XCTestCase {
                                     } catch _ { XCTFail() }
     })
 
-    // Match testWebDAVSync's widened CI window (see its comment).
-    waitForExpectations(timeout: 12, handler: nil)
+    waitForExpectations(timeout: 5, handler: nil)
   }
 
   func testSyncChangesOnMobileReverse() {
@@ -119,7 +118,7 @@ class WebDavTests: XCTestCase {
     let syncExpectation = expectation(description: "Sync")
     SyncManager.instance().sync()
 
-    let dispatchTime = DispatchTime.now() + Double(10000000000) / Double(NSEC_PER_SEC)
+    let dispatchTime = DispatchTime.now() + Double(4000000000) / Double(NSEC_PER_SEC)
     DispatchQueue.main.asyncAfter (deadline: dispatchTime,
                                    execute: {
                                     () -> (Void) in
@@ -151,8 +150,7 @@ class WebDavTests: XCTestCase {
                                     } catch _ { XCTFail() }
     })
     
-    // Match testWebDAVSync's widened CI window (see its comment).
-    waitForExpectations(timeout: 12, handler: nil)
+    waitForExpectations(timeout: 5, handler: nil)
   }
   
   func setUpInMemoryManagedObjectContext() -> NSManagedObjectContext {

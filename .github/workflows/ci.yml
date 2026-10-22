@@ -87,6 +87,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: Tools/tinydav/go.mod
+          cache-dependency-path: Tools/tinydav/go.sum
 
       - name: Start WebDAV fixture
         run: ./Scripts/WebDAV-Server-Start.sh
@@ -106,6 +107,16 @@ jobs:
             echo "Fixture returned $status without credentials (expected 401)" >&2
             exit 1
           fi
+
+      # Reproduces the app's challenge handling — accept any server
+      # certificate on the server-trust challenge, then answer the basic-auth
+      # challenge — so a trust-override regression surfaces in its own step
+      # instead of as a silent zero-download sync inside the tests.
+      - name: Verify URLSession trust handling
+        run: |
+          swift Tools/tinydav/diagnostics/urlsession-trust-probe.swift \
+            https://127.0.0.1:32773/index.org \
+            schnuddelhuddel schnuddelhuddel
 
       - name: Run WebDAV sync tests
         run: |

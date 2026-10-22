@@ -26,7 +26,12 @@ class WebDavTests: XCTestCase {
     Settings.instance().serverMode = ServerModeWebDav
     Settings.instance().username = "schnuddelhuddel"
     Settings.instance().password = "schnuddelhuddel"
-    Settings.instance().indexUrl = URL(string:  "https://mobileOrgWebDav.schnuddelhuddel.de:32773/index.org")
+    // Loopback IP literal, not the fixture hostname: the iOS 26 simulator's
+    // resolver does not consult the host's /etc/hosts, and the fixture name
+    // is a wildcard record pointing at GitHub Pages, so a hostname URL
+    // resolves to a server that is not the fixture and sync silently
+    // downloads nothing (CI run 39841570360).
+    Settings.instance().indexUrl = URL(string: "https://127.0.0.1:32773/index.org")
     Settings.instance().encryptionPassword = "SchnuddelHuddel"
 
   }

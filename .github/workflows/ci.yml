@@ -1,0 +1,131 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - develop
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    # Weekly on the default branch — catches runner-image and SDK drift early.
+    - cron: '23 6 * * 1'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # Xcode 26.6 (build 17F113) — the image default on macos-26 at the time this
+  # workflow was added; pinned via DEVELOPER_DIR so a future change of the
+  # image's default Xcode cannot drift the toolchain under us silently.
+  DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+  SIMULATOR_DESTINATION: 'platform=iOS Simulator,name=iPhone 17,OS=26.5'
+
+jobs:
+  test:
+    name: Unit tests (MobileOrg scheme)
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The "Update Bundle Version Script" build phase runs
+          # `git rev-list HEAD --count` — it needs full history.
+          fetch-depth: 0
+
+      - name: Cache SwiftPM
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/org.swift.swiftpm
+          key: spm-${{ hashFiles('**/Package.resolved') }}
+          restore-keys: spm-
+
+      - name: Resolve SwiftPM dependencies
+        run: |
+          set -o pipefail
+          xcodebuild -resolvePackageDependencies \
+            -project MobileOrg.xcodeproj \
+            -scheme MobileOrg
+
+      - name: Run unit tests
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project MobileOrg.xcodeproj \
+            -scheme MobileOrg \
+            -destination "$SIMULATOR_DESTINATION" \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee /tmp/xcodebuild-test.log | xcbeautify
+
+      - name: Upload raw test log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: raw-test-log-${{ github.run_id }}
+          path: /tmp/xcodebuild-test.log
+          if-no-files-found: ignore
+
+  test-webdav:
+    name: WebDAV sync tests (All Tests scheme)
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Cache SwiftPM
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/org.swift.swiftpm
+          key: spm-${{ hashFiles('**/Package.resolved') }}
+          restore-keys: spm-
+
+      # Builds the WebDAV fixture (Tools/tinydav, vendored dependencies —
+      # no module downloads). Resolves from the runner's preinstalled Go tool
+      # cache.
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: Tools/tinydav/go.mod
+
+      - name: Start WebDAV fixture
+        run: ./Scripts/WebDAV-Server-Start.sh
+
+      - name: Smoke-check WebDAV fixture
+        run: |
+          curl -k --fail --silent --show-error --max-time 10 \
+            -u schnuddelhuddel:schnuddelhuddel \
+            -X PROPFIND -H 'Depth: 1' \
+            https://mobileOrgWebDav.schnuddelhuddel.de:32773/ -o /dev/null
+          curl -k --fail --silent --show-error --max-time 10 \
+            -u schnuddelhuddel:schnuddelhuddel \
+            https://mobileOrgWebDav.schnuddelhuddel.de:32773/index.org -o /dev/null
+          status=$(curl -k -s --max-time 10 -o /dev/null -w '%{http_code}' \
+            https://mobileOrgWebDav.schnuddelhuddel.de:32773/index.org)
+          if [ "$status" != "401" ]; then
+            echo "Fixture returned $status without credentials (expected 401)" >&2
+            exit 1
+          fi
+
+      - name: Run WebDAV sync tests
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project MobileOrg.xcodeproj \
+            -scheme 'All Tests' \
+            -destination "$SIMULATOR_DESTINATION" \
+            -only-testing:MobileOrgTests/WebDavTests \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee /tmp/xcodebuild-webdav.log | xcbeautify
+
+      - name: Stop WebDAV fixture
+        if: always()
+        run: ./Scripts/WebDAV-Server-Stop.sh
+
+      - name: Upload raw test log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: raw-webdav-test-log-${{ github.run_id }}
+          path: /tmp/xcodebuild-webdav.log
+          if-no-files-found: ignore

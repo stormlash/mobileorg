@@ -26,7 +26,12 @@ class WebDavTests: XCTestCase {
     Settings.instance().serverMode = ServerModeWebDav
     Settings.instance().username = "schnuddelhuddel"
     Settings.instance().password = "schnuddelhuddel"
-    Settings.instance().indexUrl = URL(string:  "https://mobileOrgWebDav.schnuddelhuddel.de:32773/index.org")
+    // Loopback IP literal, not the fixture hostname: the iOS 26 simulator's
+    // resolver does not consult the host's /etc/hosts, and the fixture name
+    // is a wildcard record pointing at GitHub Pages, so a hostname URL
+    // resolves to a server that is not the fixture and sync silently
+    // downloads nothing (CI run 39841570360).
+    Settings.instance().indexUrl = URL(string: "https://127.0.0.1:32773/index.org")
     Settings.instance().encryptionPassword = "SchnuddelHuddel"
 
   }
@@ -41,7 +46,7 @@ class WebDavTests: XCTestCase {
     let syncExpectation = expectation(description: "Sync")
     SyncManager.instance().sync()
 
-    let dispatchTime = DispatchTime.now() + Double(4000000000) / Double(NSEC_PER_SEC)
+    let dispatchTime = DispatchTime.now() + Double(10000000000) / Double(NSEC_PER_SEC)
     DispatchQueue.main.asyncAfter (deadline: dispatchTime,
                                    execute: {
                                     () -> (Void) in
@@ -57,7 +62,14 @@ class WebDavTests: XCTestCase {
                                     } catch _ { XCTFail() }
     })
 
-    waitForExpectations(timeout: 4, handler: nil)
+    // Minimal CI stabilization for the audit's documented fixed-sleep
+    // pattern: the node-count assertion fires from a fixed asyncAfter, and
+    // the deadline must exceed it. CI evidence (runs 39844646908 and
+    // 39846649161): at a 4s tick the runner's full-file download has
+    // finished but the import is still mid-flight (42 of 136 nodes), so the
+    // tick needs to clear the whole serial-download-then-import cycle.
+    // Proper polled expectations are deferred to the regression-harness task.
+    waitForExpectations(timeout: 12, handler: nil)
 
   }
 

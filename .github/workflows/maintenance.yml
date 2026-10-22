@@ -1,0 +1,101 @@
+# Weekly maintenance canary.
+#
+# Once a week — even when nothing merged — re-run the CI test lanes on
+# develop. Catches environment drift the merge gate can't see: runner image
+# refreshes, Xcode point releases, simulator changes, SwiftPM dependency
+# drift. If the dispatched run fails, this job fails loudly so same-day
+# fixes — and, later, the runbook's paging process — can start.
+#
+# Offset from ci.yml's own weekly cron (Mondays 06:23 UTC) so the two full
+# builds probe the week at different points. Scheduled workflows always run
+# from the default branch.
+
+name: Maintenance canary
+
+on:
+  schedule:
+    # Thursdays 09:17 UTC — midweek, offset from ci.yml's Monday 06:23 UTC cron.
+    - cron: '17 9 * * 4'
+  workflow_dispatch:
+
+permissions:
+  # The workflow's own GITHUB_TOKEN dispatches ci.yml and reads run status.
+  actions: write
+  contents: read
+
+concurrency:
+  # Never run two canaries at once; a manual dispatch waits for a scheduled
+  # one rather than cancelling it.
+  group: maintenance-canary
+  cancel-in-progress: false
+
+jobs:
+  canary:
+    name: Canary — re-run CI lanes on develop
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - name: Snapshot existing workflow_dispatch runs of ci.yml on develop
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run list --repo "$GITHUB_REPOSITORY" \
+            --workflow=ci.yml --branch=develop --event=workflow_dispatch \
+            --limit 30 --json databaseId --jq '.[].databaseId' \
+            | sort -u > /tmp/ci-runs-before.txt
+          echo "Runs before dispatch:"; cat /tmp/ci-runs-before.txt
+
+      - name: Dispatch ci.yml on develop
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run ci.yml --ref develop
+
+      - name: Identify the dispatched run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          run_id=""
+          for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
+            sleep 10
+            run_id=$(gh run list --repo "$GITHUB_REPOSITORY" \
+              --workflow=ci.yml --branch=develop --event=workflow_dispatch \
+              --limit 30 --json databaseId --jq '.[].databaseId' \
+              | sort -u | comm -13 /tmp/ci-runs-before.txt - | tail -n 1)
+            if [ -n "$run_id" ]; then break; fi
+            echo "Dispatched run not registered yet (attempt $attempt/12)…"
+          done
+          if [ -z "$run_id" ]; then
+            echo "::error::No new workflow_dispatch run of ci.yml on develop appeared within two minutes of dispatch. Check that ci.yml still declares the workflow_dispatch trigger."
+            exit 1
+          fi
+          echo "CANARY_RUN_ID=$run_id" >> "$GITHUB_ENV"
+          echo "Canary run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$run_id"
+
+      - name: Wait for the canary run to conclude
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # 55 polls x 60s of waiting, well past the CI lanes' usual duration;
+          # the job-level timeout-minutes above bounds the rest. A transient
+          # gh failure counts as "still pending" and retries.
+          for poll in $(seq 1 55); do
+            state=$(gh run view "$CANARY_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+              --json status,conclusion \
+              --jq '.status + ":" + (.conclusion // "pending")' 2>/dev/null \
+              || echo "pending:poll-error")
+            case "$state" in
+              completed:success)
+                echo "Canary CI run $CANARY_RUN_ID concluded success — develop is healthy."
+                exit 0
+                ;;
+              completed:*)
+                echo "::error::Canary CI run $CANARY_RUN_ID concluded '${state#completed:}' with nothing merged — the environment or dependencies moved, not the code. Follow docs/MAINTENANCE.md: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$CANARY_RUN_ID"
+                exit 1
+                ;;
+            esac
+            sleep 60
+          done
+          echo "::error::Timed out after ~55 minutes waiting for canary run $CANARY_RUN_ID ($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$CANARY_RUN_ID)."
+          exit 1

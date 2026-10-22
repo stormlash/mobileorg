@@ -1,0 +1,50 @@
+# Dependency freshness for the factory — policy in docs/MAINTENANCE.md.
+#
+# Minor and patch updates batch into one PR per ecosystem per month; major
+# updates arrive as individual PRs so breaking changes get a close look.
+
+version: 2
+updates:
+  # GitHub Actions used by the CI lanes and the maintenance canary.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    groups:
+      actions-minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    commit-message:
+      prefix: "build"
+
+  # Swift Package Manager. The pins currently live in the Xcode project
+  # (XCRemoteSwiftPackageReference — SwiftyDropbox -> Alamofire) and there is
+  # no root Package.swift, so this entry stays quiet until a manifest exists.
+  # Kept so SPM updates start automatically if/when one lands. Note the
+  # standing plan (fork audit) is to REMOVE SwiftyDropbox rather than bump it.
+  - package-ecosystem: "swift"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    groups:
+      spm-minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    commit-message:
+      prefix: "build"
+
+  # Bundler: fastlane and its gems for the TestFlight delivery lane. Quiet
+  # until that lane's Gemfile lands at the repo root.
+  - package-ecosystem: "bundler"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    groups:
+      bundler-minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    commit-message:
+      prefix: "build"

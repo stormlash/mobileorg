@@ -367,8 +367,8 @@ final class OrgShadowParityTests: XCTestCase {
 
   private func assertParity(_ node: Node, _ shadow: OrgShadowNode, path: String) {
     XCTAssertEqual(node.heading ?? "", shadow.heading, "heading @ \(path)")
-    XCTAssertEqual(Int32(node.indentLevel?.intValue ?? 0), Int32(shadow.indentLevel), "indentLevel @ \(path)")
-    XCTAssertEqual(Int32(node.sequenceIndex?.intValue ?? 0), Int32(shadow.sequenceIndex), "sequenceIndex @ \(path)")
+    XCTAssertEqual(Int32(node.indentLevel?.intValue ?? 0), Int32(shadow.level), "indentLevel @ \(path)")
+    XCTAssertEqual(Int32(node.sequenceIndex?.intValue ?? 0), Int32(shadow.sequence), "sequenceIndex @ \(path)")
     XCTAssertEqual(node.todoState ?? "", shadow.todoState, "todoState @ \(path)")
     XCTAssertEqual(node.priority ?? "", shadow.priority, "priority @ \(path)")
     XCTAssertEqual(node.tags ?? "", shadow.tags, "tags @ \(path)")

@@ -59,11 +59,11 @@ static void IndexStoredIds(Node *node, NSMutableDictionary *idIndex) {
     if (!SameText(node.heading, shadow.heading)) {
         node.heading = shadow.heading;
     }
-    if ([node.indentLevel intValue] != shadow.indentLevel) {
-        node.indentLevel = [NSNumber numberWithInt:shadow.indentLevel];
+    if ([node.indentLevel intValue] != shadow.level) {
+        node.indentLevel = [NSNumber numberWithInt:shadow.level];
     }
-    if ([node.sequenceIndex intValue] != shadow.sequenceIndex) {
-        node.sequenceIndex = [NSNumber numberWithInt:shadow.sequenceIndex];
+    if ([node.sequenceIndex intValue] != shadow.sequence) {
+        node.sequenceIndex = [NSNumber numberWithInt:shadow.sequence];
     }
     if (!SameText(node.todoState, shadow.todoState)) {
         node.todoState = shadow.todoState;
@@ -100,8 +100,8 @@ static void IndexStoredIds(Node *node, NSMutableDictionary *idIndex) {
     Node *node = (Node*)[NSEntityDescription insertNewObjectForEntityForName:@"Node"
                                                       inManagedObjectContext:managedObjectContext];
     node.heading = shadow.heading;
-    node.indentLevel = [NSNumber numberWithInt:shadow.indentLevel];
-    node.sequenceIndex = [NSNumber numberWithInt:shadow.sequenceIndex];
+    node.indentLevel = [NSNumber numberWithInt:shadow.level];
+    node.sequenceIndex = [NSNumber numberWithInt:shadow.sequence];
     node.outlinePath = shadow.outlinePath;
     node.todoState = shadow.todoState;
     node.inheritedTags = shadow.inheritedTags;
@@ -153,7 +153,7 @@ static void IndexStoredIds(Node *node, NSMutableDictionary *idIndex) {
             if ([matched containsObject:candidate.objectID]) {
                 continue;
             }
-            if ([candidate.indentLevel intValue] == shadow.indentLevel &&
+            if ([candidate.indentLevel intValue] == shadow.level &&
                 [candidate.heading isEqualToString:shadow.heading]) {
                 match = candidate;
                 break;

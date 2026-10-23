@@ -30,8 +30,8 @@
 @interface OrgShadowNode : NSObject
 
 @property (nonatomic, copy) NSString *heading;
-@property (nonatomic, assign) int indentLevel;
-@property (nonatomic, assign) int sequenceIndex;
+@property (nonatomic, assign) int level;
+@property (nonatomic, assign) int sequence;
 @property (nonatomic, copy) NSString *todoState;
 @property (nonatomic, copy) NSString *priority;
 @property (nonatomic, copy) NSString *tags;

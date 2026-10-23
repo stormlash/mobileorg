@@ -43,8 +43,8 @@
 }
 
 @synthesize heading = _heading;
-@synthesize indentLevel = _indentLevel;
-@synthesize sequenceIndex = _sequenceIndex;
+@synthesize level = _level;
+@synthesize sequence = _sequence;
 @synthesize todoState = _todoState;
 @synthesize priority = _priority;
 @synthesize tags = _tags;
@@ -626,8 +626,8 @@
 
     OrgShadowNode *root = [OrgShadowNode new];
     root.heading = orgFilename;
-    root.indentLevel = 0;
-    root.sequenceIndex = 0;
+    root.level = 0;
+    root.sequence = 0;
     root.readOnly = true;
 
     // Maintain a stack of nodes for parenting use, rooted at the file shadow
@@ -938,8 +938,8 @@
                 // Create the shadow for this entry
                 OrgShadowNode *node = [OrgShadowNode new];
                 node.heading = title;
-                node.indentLevel = numStars;
-                node.sequenceIndex = sequenceIndex;
+                node.level = numStars;
+                node.sequence = sequenceIndex;
                 node.outlinePath = outlinePath;
                 node.todoState = todoState;
                 node.inheritedTags = inheritedTags;

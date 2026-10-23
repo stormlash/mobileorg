@@ -136,10 +136,18 @@ final class SyncTimingCaptureTests: WebDavSyncTestCase {
       let cipherURL = FileManager.default.temporaryDirectory
         .appendingPathComponent("diag-cipher-\(i)-sample.org")
       try contents.write(to: cipherURL)
-      let readBack = ReadPossiblyEncryptedFile(cipherURL.path, nil)
-      print("DIAG-TEST read-step: \(readBack == nil ? "NIL" : "ok, tail=\(readBack!.suffix(20).debugDescription)")")
+      // The implementation writes *error unconditionally, so a nil pointer
+      // crashes; pass a real out-parameter.
+      var readErr: NSString?
+      let readBack = ReadPossiblyEncryptedFile(cipherURL.path, &readErr)
+      print("DIAG-TEST read-step: \(readBack == nil ? "NIL (\(readErr ?? "no error set"))" : "ok, tail=\(readBack!.suffix(20).debugDescription)")")
       let rawPlain = (contents as NSData).aes256Decrypt(withKey: password)
-      print("DIAG-TEST raw decrypt: \(rawPlain == nil ? "NIL" : "ok, \(rawPlain!.count) bytes")")
+      if let rawPlain = rawPlain {
+        let tailHex = (rawPlain as Data).suffix(16).map { String(format: "%02x", $0) }.joined()
+        print("DIAG-TEST raw decrypt: ok, \(rawPlain.count) bytes, tailHex=\(tailHex)")
+      } else {
+        print("DIAG-TEST raw decrypt: NIL")
+      }
 
       let cipherParser = OrgFileParser()
       cipherParser.localFilename = cipherURL.path

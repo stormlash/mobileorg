@@ -49,62 +49,44 @@
         entireFile = @"";
     }
 
-    NSScanner *theScanner;
-    theScanner = [NSScanner scannerWithString:entireFile];
+    // Supported line formats: linux md5sum ("32hex  filename"), shasum
+    // ("40hex  filename"), and macOS md5 ("MD5 (filename) = 32hex").
+    // NSRegularExpression is used because the previous implementation relied
+    // on componentsSeparatedByRegex:, a RegexKitLite category that no SDK
+    // provides: on the modern SDK it matched nothing, the checksum table
+    // stayed empty, and every sync re-downloaded all files. Capture groups
+    // are read explicitly, so the semantics are documented behavior.
+    NSError *regexError = nil;
+    NSRegularExpression *shasum = [NSRegularExpression regularExpressionWithPattern:@"^([a-f0-9]{40})  (.+)$" options:0 error:&regexError];
+    NSRegularExpression *md5sum = [NSRegularExpression regularExpressionWithPattern:@"^([a-f0-9]{32})  (.+)$" options:0 error:&regexError];
+    NSRegularExpression *osxmd5 = [NSRegularExpression regularExpressionWithPattern:@"^MD5 \\((.+)\\) = ([a-f0-9]{32})$" options:0 error:&regexError];
+    if (!shasum || !md5sum || !osxmd5 || regexError) {
+        return;
+    }
 
-    NSString *line;
-    NSCharacterSet *eolSet;
-    eolSet = [NSCharacterSet newlineCharacterSet];
+    for (NSString *line in [entireFile componentsSeparatedByCharactersInSet:[NSCharacterSet newlineCharacterSet]]) {
+        if ([line length] == 0) {
+            continue;
+        }
 
-    [theScanner setCharactersToBeSkipped:eolSet];
+        NSString *checksum = nil, *filename = nil;
+        NSRange range = NSMakeRange(0, [line length]);
+        NSTextCheckingResult *match = [shasum firstMatchInString:line options:0 range:range];
+        if (match) {
+            checksum = [line substringWithRange:[match rangeAtIndex:1]];
+            filename = [line substringWithRange:[match rangeAtIndex:2]];
+        } else if ((match = [md5sum firstMatchInString:line options:0 range:range])) {
+            checksum = [line substringWithRange:[match rangeAtIndex:1]];
+            filename = [line substringWithRange:[match rangeAtIndex:2]];
+        } else if ((match = [osxmd5 firstMatchInString:line options:0 range:range])) {
+            // NOTE: Filename and checksum are swapped in the osx md5 format
+            filename = [line substringWithRange:[match rangeAtIndex:1]];
+            checksum = [line substringWithRange:[match rangeAtIndex:2]];
+        }
 
-    // Handle md5 output from osx, md5sum from linux, and shasum output
-    // Be careful not to die if there's a bad line (like if you md5sum'd * with dirs in it
-    while ([theScanner isAtEnd] == NO) {
-        if ([theScanner scanUpToCharactersFromSet:eolSet intoString:&line]) {
-            if (line && [line length] > 0) {
-                // shasum
-                // 40 chars of checksum, 2 spaces, filename
-                // 4c05152c39bcc402ea99851c01e3849060a9d3a1  MainWindow.xib
-
-                // md5 on osx
-                // MD5 (filename) = 32hex chars
-                // MD5 (Icon.png) = 476d45ce45fc0658bbda13137bc60205
-
-                // md5sum on linux
-                // 32hex chars, 2 spaces, filename
-                // e5d34d894456a55345977fc617e79a17  org-contribute.org
-
-                static NSString *shasumRegex = @"([a-f0-9]{40})  (.+)";
-                static NSString *md5sumRegex = @"([a-f0-9]+)  (.+)";
-                static NSString *osxmd5Regex = @"MD5 \\((.+)\\) = ([a-f0-9]{32})";
-
-                NSString *checksum = nil, *filename = nil;
-                NSArray *matches = nil;
-
-                matches = [line componentsSeparatedByRegex:shasumRegex];
-                if ([matches count] == 3) {
-                    checksum = [matches objectAtIndex:1];
-                    filename = [matches objectAtIndex:2];
-                } else {
-                    matches = [line componentsSeparatedByRegex:md5sumRegex];
-                    if ([matches count] == 3) {
-                        checksum = [matches objectAtIndex:1];
-                        filename = [matches objectAtIndex:2];
-                    } else {
-                        matches = [line componentsSeparatedByRegex:osxmd5Regex];
-                        if ([matches count] == 4) {
-                            // NOTE: Filename and checksum are swapped
-                            filename = [matches objectAtIndex:1];
-                            checksum = [matches objectAtIndex:2];
-                        }
-                    }
-                }
-
-                if (checksum && filename) {
-                    [checksumPairs setObject:checksum forKey:filename];
-                }
-            }
+        // Be careful not to die if there's a bad line (like if you md5sum'd * with dirs in it
+        if (checksum && filename) {
+            [checksumPairs setObject:checksum forKey:filename];
         }
     }
 }

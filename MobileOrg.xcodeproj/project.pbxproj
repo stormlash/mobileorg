@@ -36,6 +36,7 @@
 		744408DE1E035A1800BCE192 /* DropboxTransferManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 744408DD1E035A1800BCE192 /* DropboxTransferManager.swift */; };
 		744787E01EB265A700631BA2 /* WebDavTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 744787DF1EB265A700631BA2 /* WebDavTests.swift */; };
 		7AE6E0C01FE7000000000002 /* WebDavSyncContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AE6E0C01FE7000000000001 /* WebDavSyncContractTests.swift */; };
+		7AE6E0C01FE7000000000004 /* ChecksumFileParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AE6E0C01FE7000000000003 /* ChecksumFileParserTests.swift */; };
 		744787E21EB3198D00631BA2 /* PersistenceStack.swift in Sources */ = {isa = PBXBuildFile; fileRef = 744787E11EB3198D00631BA2 /* PersistenceStack.swift */; };
 		744EF0401E4666B200DB1E81 /* MobileOrgTestingSample.org in Resources */ = {isa = PBXBuildFile; fileRef = 744EF03F1E4666B200DB1E81 /* MobileOrgTestingSample.org */; };
 		745B1E311EC98C9B00D80421 /* MobileOrg2.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = 745B1E2E1EC98C9B00D80421 /* MobileOrg2.xcdatamodeld */; };
@@ -170,6 +171,7 @@
 		744408DD1E035A1800BCE192 /* DropboxTransferManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = DropboxTransferManager.swift; path = Dropbox/DropboxTransferManager.swift; sourceTree = "<group>"; };
 		744787DF1EB265A700631BA2 /* WebDavTests.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = WebDavTests.swift; sourceTree = "<group>"; };
 		7AE6E0C01FE7000000000001 /* WebDavSyncContractTests.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = WebDavSyncContractTests.swift; sourceTree = "<group>"; };
+		7AE6E0C01FE7000000000003 /* ChecksumFileParserTests.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ChecksumFileParserTests.swift; sourceTree = "<group>"; };
 		744787E11EB3198D00631BA2 /* PersistenceStack.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PersistenceStack.swift; sourceTree = "<group>"; };
 		744EF03F1E4666B200DB1E81 /* MobileOrgTestingSample.org */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = MobileOrgTestingSample.org; sourceTree = "<group>"; };
 		745B1E2F1EC98C9B00D80421 /* MobileOrg 2.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = "MobileOrg 2.xcdatamodel"; sourceTree = "<group>"; };
@@ -474,6 +476,7 @@
 				7419FA531E20DAC900F0EA45 /* SettingsTest.swift */,
 				744787DF1EB265A700631BA2 /* WebDavTests.swift */,
 				7AE6E0C01FE7000000000001 /* WebDavSyncContractTests.swift */,
+				7AE6E0C01FE7000000000003 /* ChecksumFileParserTests.swift */,
 			);
 			path = MobileOrgTests;
 			sourceTree = "<group>";
@@ -1015,6 +1018,7 @@
 				747BF9A31DFD738E00E800FB /* NodeTests.m in Sources */,
 				744787E01EB265A700631BA2 /* WebDavTests.swift in Sources */,
 				7AE6E0C01FE7000000000002 /* WebDavSyncContractTests.swift in Sources */,
+				7AE6E0C01FE7000000000004 /* ChecksumFileParserTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

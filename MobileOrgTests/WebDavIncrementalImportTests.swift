@@ -65,14 +65,21 @@ final class SyncTimingCaptureTests: WebDavSyncTestCase {
       var contents = try fetchFixtureFile(target)
       if encrypted {
         // The legacy profile serves ciphertext; stage the mutation the way
-        // the app's own encryption path would produce it.
-        guard let plain = contents.aes256Decrypt(withKey: password), plain.count > 0 else {
+        // the app's own encryption path would produce it. Swift does not
+        // bridge Data implicitly for arbitrary NSData category members, so
+        // cast through NSData explicitly.
+        guard let plainNS = (contents as NSData).aes256Decrypt(withKey: password),
+              plainNS.count > 0 else {
           XCTFail("could not decrypt \(target) with the profile password")
           return
         }
-        var text = String(decoding: plain, as: UTF8.self)
+        var text = String(decoding: plainNS as Data, as: UTF8.self)
         text += "* Timing probe \(i)\n"
-        contents = Data(text.utf8).aes256Encrypt(withKey: password)
+        guard let cipherNS = (Data(text.utf8) as NSData).aes256Encrypt(withKey: password) else {
+          XCTFail("could not re-encrypt \(target) with the profile password")
+          return
+        }
+        contents = cipherNS as Data
       } else {
         contents.append(Data("* Timing probe \(i)\n".utf8))
       }

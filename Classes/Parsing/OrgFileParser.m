@@ -28,6 +28,105 @@
 #import "MobileOrg-Swift.h"
 
 
+@interface OrgShadowNode ()
+// Internal readwrite redeclaration: children own the tree downward, so the
+// parent back-pointer must be weak to avoid a retain cycle.
+@property (nonatomic, weak, readwrite) OrgShadowNode *parent;
+- (void)addChildShadow:(OrgShadowNode *)child;
+- (void)finalizeBody;
+@end
+
+@implementation OrgShadowNode {
+    NSMutableArray *_children;
+    NSMutableString *_bodyBuffer;
+    bool _hasBodyLines;
+}
+
+@synthesize heading = _heading;
+@synthesize indentLevel = _indentLevel;
+@synthesize sequenceIndex = _sequenceIndex;
+@synthesize todoState = _todoState;
+@synthesize priority = _priority;
+@synthesize tags = _tags;
+@synthesize inheritedTags = _inheritedTags;
+@synthesize body = _body;
+@synthesize nodeId = _nodeId;
+@synthesize referencedNodeId = _referencedNodeId;
+@synthesize readOnly = _readOnly;
+@synthesize outlinePath = _outlinePath;
+@synthesize parent = _parent;
+
+- (instancetype)init {
+    if (self = [super init]) {
+        _children = [NSMutableArray new];
+        _bodyBuffer = [NSMutableString new];
+        _todoState = @"";
+        _priority = @"";
+        _tags = @"";
+        _inheritedTags = @"";
+        _nodeId = @"";
+        _referencedNodeId = @"";
+    }
+    return self;
+}
+
+- (NSArray<OrgShadowNode *> *)children {
+    return _children;
+}
+
+- (void)addChildShadow:(OrgShadowNode *)child {
+    child.parent = self;
+    [_children addObject:child];
+}
+
+- (void)appendBodyLine:(NSString *)line {
+    // Single-pass equivalent of -parse:'s recopy-every-line body logic:
+    // an empty first body line yields an empty body, and blank lines between
+    // content are preserved exactly.
+    if ([_bodyBuffer length] > 0) {
+        [_bodyBuffer appendString:@"\n"];
+        if ([line length] > 0) {
+            [_bodyBuffer appendString:line];
+        }
+    } else if (!_hasBodyLines) {
+        [_bodyBuffer setString:@""];
+        if ([line length] > 0) {
+            [_bodyBuffer appendString:line];
+        }
+        _hasBodyLines = true;
+    } else {
+        // A previous line left an empty buffer (e.g. a blank first body
+        // line): keep it empty until real content shows up.
+        if ([line length] > 0) {
+            [_bodyBuffer appendString:line];
+        }
+    }
+}
+
+- (void)finalizeBody {
+    // The shadow path accumulates body text in a single pass; -parse: recopies
+    // the node body on every line instead. Same result, one pass.
+    if (_hasBodyLines) {
+        self.body = [NSString stringWithString:_bodyBuffer];
+    }
+}
+
+- (NSString *)completeTags {
+    // Same rule as -[Node completeTags]: inherited tags already accumulate
+    // down the tree, so completing is inherited + own with '::' collapsed.
+    NSString *ret = self.inheritedTags;
+    if (!ret || [ret length] == 0) {
+        return self.tags;
+    }
+
+    ret = [ret stringByAppendingString:self.tags];
+    ret = [ret stringByReplacingOccurrencesOfString:@"::" withString:@":"];
+
+    return ret;
+}
+
+@end
+
 @implementation OrgFileParser
 
 @synthesize delegate;
@@ -496,6 +595,412 @@
     if (delegate != nil && completionSelector != nil) {
         ((void (*)(id, SEL))[delegate methodForSelector:completionSelector])(delegate, completionSelector);
     }
+}
+
+- (OrgShadowNode *)parseToShadow {
+    // Shadow twin of -parse: — builds a transient tree instead of writing
+    // Core Data, so SyncManager can diff it against the stored outline and
+    // commit only the differences. Keyword handling, heading rules and body
+    // accumulation match -parse: line for line; the parity tests pin the two
+    // together. A read or decode failure returns nil and writes nothing.
+    self.errorStr = nil;
+
+    // If this is the index node, we have to do a couple things special
+    bool isIndex = false;
+    if ([self.orgFilename isEqualToString:[[Settings instance] indexFilename]]) {
+        isIndex = true;
+        [[Settings instance] resetPrimaryTagsAndTodoStates];
+    }
+
+    // Read the entire file into memory (perhaps one day we'll do this line by line somehow?)
+    NSString *entireFile = ReadPossiblyEncryptedFile(localFilename, &errorStr);
+    if (errorStr || !entireFile) {
+        if (!errorStr) {
+            errorStr = @"Unknown encoding, re-save file as UTF-8";
+        }
+        // The point of the shadow path: a failed read leaves the stored
+        // outline for this file untouched (the old path replaced it with a
+        // single error node).
+        return nil;
+    }
+
+    OrgShadowNode *root = [OrgShadowNode new];
+    root.heading = orgFilename;
+    root.indentLevel = 0;
+    root.sequenceIndex = 0;
+    root.readOnly = true;
+
+    // Maintain a stack of nodes for parenting use, rooted at the file shadow
+    NSMutableArray *nodeStack = [NSMutableArray arrayWithObject:root];
+
+    {
+        NSArray *lines;
+        NSString *line;
+        int lastNumStars = 0;
+        OrgShadowNode *lastNode = nil;
+        int sequenceIndex = 1;
+        bool readOnlyFile = false;
+        bool addedDefaultTodoStates = false;
+
+        lines = [entireFile componentsSeparatedByCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@"\r\n"]];
+
+        // Until we hit the end of the file
+        for (int i = 0; i < (NSInteger)[lines count]; i++) {
+
+            line = [lines objectAtIndex:i];
+
+            // Determine how many stars this heading has, if it is indeed a heading
+            int numStars = 0;
+
+            if ([line length] > 0) {
+                while (numStars < (NSInteger)[line length] && [line characterAtIndex:numStars] == '*') {
+                    numStars++;
+                }
+
+                // Oops, it wasn't really a headling, there has to be a space following the last star!
+                if (numStars >= (NSInteger)[line length] || [line characterAtIndex:numStars] != ' ') {
+                    numStars = 0;
+                }
+            }
+
+            // Parse todo State keywords
+            // There may be multiple liens of them!
+            // Also handle:   | WORD or | WORD, ie, no todo or no done keywords
+            //
+            // So we store these as todoStateGroups in Settings.
+            if (isIndex && [[nodeStack lastObject] indentLevel] == 0) {
+                NSRange keywordRange = [line rangeOfString:@"#+TODO: "];
+                if (keywordRange.location != NSNotFound) {
+
+                    // Get rid of any (t), (d), etc type shortcuts
+                    line = [line stringByReplacingOccurrencesOfRegex:@"\\(\\w\\)" withString:@""];
+
+                    // CLEANUP: This regex is a hack
+                    NSArray *splitArray;
+                    NSString *todoWords;
+                    NSString *doneWords;
+                    if ([line containsString:@"|"]) {
+                        splitArray = [line captureComponentsMatchedByRegex:@"#\\+TODO:\\s+([\\s\\w-]*)(\\| ([\\s\\w-]*))*"];
+                    }
+                    else {
+                        splitArray = [line captureComponentsMatchedByRegex:@"#\\+TODO:\\s+([\\s\\w-]*)\\s+([\\s\\w-]*)"];
+                    }
+                    if ([splitArray count] > 3) {
+                        todoWords = [[splitArray objectAtIndex:1] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+                        doneWords = [[splitArray objectAtIndex:3] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+                    } else if ([splitArray count] > 2) {
+                        todoWords = [[splitArray objectAtIndex:1] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+                        doneWords = [[splitArray objectAtIndex:2] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+                    }
+                    if ([splitArray count] > 2) {
+                        // Add a new todoStateGroup
+                        NSMutableArray *todoStateGroup = [NSMutableArray new];
+
+                        // Add 2 sub arrays to it, one full of keywords for todo, the other are done keywords
+                        NSMutableArray *todoStates = [NSMutableArray new];
+                        NSMutableArray *doneStates = [NSMutableArray new];
+
+                        [todoStateGroup addObject:todoStates];
+                        [todoStateGroup addObject:doneStates];
+
+                        if ([todoWords length] > 0) {
+                            for (NSString *state in [todoWords componentsSeparatedByRegex:@"\\s"]) {
+                                if ([state length] > 0) {
+                                    [todoStates addObject:state];
+                                }
+                            }
+                        }
+
+                        if ([doneWords length] > 0) {
+                            for (NSString *state in [doneWords componentsSeparatedByRegex:@"\\s"]) {
+                                if ([state length] > 0) {
+                                    [doneStates addObject:state];
+                                }
+                            }
+                        }
+
+                        // Add the group to the Settings instance using
+                        [[Settings instance] addTodoStateGroup:todoStateGroup];
+                    }
+                }
+            }
+
+            // Check for TAGS line, which is the primary index file's way to let us know which
+            // tags are 'most important'.
+            if (isIndex && [[nodeStack lastObject] indentLevel] == 0) {
+
+                // Get rid of any (t), (d), etc type shortcuts
+                line = [line stringByReplacingOccurrencesOfRegex:@"\\(\\w\\)" withString:@""];
+
+                NSArray *matches = [line captureComponentsMatchedByRegex:@"^#\\+TAGS:\\s(.+)"];
+                if ([matches count] > 0) {
+                    NSString *tags = [NSString stringWithString:[matches objectAtIndex:1]];
+
+                    // Remove the { } markers for mutex stuff, we'll worry about that later
+                    tags = [tags stringByReplacingOccurrencesOfString:@"{ " withString:@" "];
+                    tags = [tags stringByReplacingOccurrencesOfString:@" }" withString:@" "];
+
+                    // Safe to assume that the tag list is like ":a:b:c:"
+                    if ([tags characterAtIndex:0] == ':') {
+                        // Nothing to do
+                    } else {
+                        // Otherwise, it may be like "a b c"
+                        tags = [tags stringByReplacingOccurrencesOfString:@" " withString:@":"];
+                        tags = [NSString stringWithFormat:@":%@:", tags];
+                    }
+
+                    // Tell the settings store about any potentially new tags
+                    {
+                        NSArray *tagArray = [tags componentsSeparatedByString:@":"];
+                        for (NSString *tag in tagArray) {
+                            [[Settings instance] addPrimaryTag:tag];
+                        }
+                    }
+
+                    tags = [NSString stringWithString:[matches objectAtIndex:1]];
+                    if ([tags rangeOfString:@"{"].location != NSNotFound) {
+                        // Handle mutex stuff
+                        NSArray *captures = [tags arrayOfCaptureComponentsMatchedByRegex:@"\\{ (.+?) \\}"];
+                        for (NSArray *capture in captures) {
+                            NSArray *mutexTags = [[capture objectAtIndex:1] componentsSeparatedByString:@" "];
+                            [[Settings instance] addMutuallyExclusiveTagGroup:mutexTags];
+                        }
+                    }
+                }
+            }
+
+            // Handle #+ALLPRIORITIES
+            if (isIndex && [[nodeStack lastObject] indentLevel] == 0) {
+                NSArray *matches = [line captureComponentsMatchedByRegex:@"^#\\+ALLPRIORITIES:\\s(.+)"];
+                if ([matches count] > 0) {
+                    NSArray *priorities = [[matches objectAtIndex:1] componentsSeparatedByString:@" "];
+                    for (NSString *priority in priorities) {
+                        if ([priority length] > 0) {
+                            [[Settings instance] addPriority:priority];
+                        }
+                    }
+                }
+            }
+
+            // Check for FILETAGS lines, add those tags to the file node
+            if ([[nodeStack lastObject] indentLevel] == 0) {
+
+                // Get rid of any (t), (d), etc type shortcuts
+                line = [line stringByReplacingOccurrencesOfRegex:@"\\(\\w\\)" withString:@""];
+
+                NSArray *matches = [line captureComponentsMatchedByRegex:@"^#\\+FILETAGS:\\s(.+)"];
+                if ([matches count] > 0) {
+                    NSString *tags = [matches objectAtIndex:1];
+                    // Safe to assume that the tag list is like ":a:b:c:"
+                    if ([tags characterAtIndex:0] == ':') {
+                        // Nothing to do
+                    } else {
+                        // Otherwise, it may be like "a b c"
+                        tags = [tags stringByReplacingOccurrencesOfString:@" " withString:@":"];
+                        tags = [NSString stringWithFormat:@":%@:", tags];
+                    }
+
+                    [[nodeStack lastObject] setTags:tags];
+
+                    // Tell the settings store about any potentially new tags
+                    {
+                        NSArray *tagArray = [tags componentsSeparatedByString:@":"];
+                        for (NSString *element in tagArray) {
+                            if (element && [element length] > 0) {
+                                [[Settings instance] addTag:element];
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Check for #+READONLY
+            if ([[nodeStack lastObject] indentLevel] == 0) {
+                if ([line rangeOfString:@"#+READONLY"].location == 0) {
+                    readOnlyFile = true;
+                }
+            }
+
+            // Handle headings
+            if (numStars > 0) {
+
+                if (isIndex && !addedDefaultTodoStates) {
+                    NSMutableArray *todoStateGroup = [NSMutableArray arrayWithCapacity:2];
+                    [todoStateGroup addObject:[NSMutableArray arrayWithCapacity:0]];
+                    [todoStateGroup addObject:[NSMutableArray arrayWithObject:@"DONEARCHIVE"]];
+                    [[Settings instance] addTodoStateGroup:todoStateGroup];
+                    addedDefaultTodoStates = true;
+                }
+
+                // The title is * THIS PART
+                NSString *title = [[line substringFromIndex:(numStars+1)] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+
+                // If this heading has fewer stars than the its parent, pop nodes off
+                // of the nodeStack until we hit this level
+                while (lastNumStars > numStars && [nodeStack count] > 0) {
+                    if ([[nodeStack lastObject] indentLevel] == lastNumStars) {
+                        [nodeStack removeLastObject];
+                    }
+                    lastNumStars--;
+                }
+
+                // Prevent wrong indentation if previous heading level had skipped
+                while ((NSInteger)[nodeStack count] > numStars + 1) {
+                    [nodeStack removeLastObject];
+                }
+
+                // If the last heading was
+                if (lastNumStars == numStars && [nodeStack count] > 0) {
+                    [nodeStack removeLastObject];
+                }
+
+                // Increment sequence index, which helps us define the order of children
+                sequenceIndex++;
+
+                // Extract the keyword from the title, if it exists
+                NSString *todoState = @"";
+                NSRange spaceRange = [title rangeOfString:@" "];
+                if (spaceRange.location != NSNotFound) {
+                    // Make sure the title is longer than just a keyword
+                    if ([title length] > spaceRange.location+1) {
+                        NSString *firstWord = [title substringToIndex:spaceRange.location];
+                        if ([[Settings instance] isTodoState:firstWord] ||
+                            [[Settings instance] isDoneState:firstWord]) {
+                            title = [title substringFromIndex:spaceRange.location+1];
+                            todoState = firstWord;
+                        }
+                    }
+                }
+
+                // Extract priority from the title, if it exists
+                NSString *priority = @"";
+                NSArray *priorityCaptures = [title captureComponentsMatchedByRegex:@"\\[#([a-zA-Z0-9])\\] (.+)"];
+                if ([priorityCaptures count] > 0) {
+                    if ([[Settings instance] isPriority:[priorityCaptures objectAtIndex:1]]) {
+                        priority = [priorityCaptures objectAtIndex:1];
+                        title = [priorityCaptures objectAtIndex:2];
+                    }
+                }
+
+                // Extract tags from the title, if they exist
+                NSString *tags = @"";
+                NSString *tagRegExp = @"(.+?)[ \\s]+(:([@\\w\\.]+:)+)[ \\s]*$";
+                NSArray *splitTagTitleArray = [title captureComponentsMatchedByRegex:tagRegExp];
+                if ([splitTagTitleArray count] >= 2) {
+                    title = [splitTagTitleArray objectAtIndex:1];
+                    tags = [splitTagTitleArray objectAtIndex:2];
+
+                    // Tell the settings store about any potentially new tags
+                    {
+                        NSArray *tagArray = [tags componentsSeparatedByString:@":"];
+                        for (NSString *element in tagArray) {
+                            if (element && [element length] > 0) {
+                                [[Settings instance] addTag:element];
+                            }
+                        }
+                    }
+                }
+
+                // Determine the inherited tags
+                NSString *inheritedTags = [[nodeStack lastObject] completeTags];
+
+                // Create the node's outline path
+                //
+                // [[olp:path/to/file%3aa.org:grandparent a%2fb/%5b#A%5d parent/heading][heading]]
+                //
+                // where parent had a priority cookie [#A] in the headline and you have escaped
+                // the brackets with hex representations.  The grandparent heading contained
+                // a/b, and the slash is transformed as well.  The file name was file:a.org, and we
+                // have escaped the colon.
+                //
+                NSString *outlinePath = [NSString stringWithFormat:@"olp:%@:", EscapeStringForOutlinePath(orgFilename)];
+                bool first = true;
+                for (OrgShadowNode *node in nodeStack) {
+                    if (first) {
+                        // Skip the first node, it is the file node, which we already accounted for
+                        // in the initialization of outlinePath above
+                        first = false;
+                        continue;
+                    }
+                    // Add a / between components, but not if it is the first one
+                    if ([outlinePath characterAtIndex:[outlinePath length]-1] != ':') {
+                        outlinePath = [outlinePath stringByAppendingString:@"/"];
+                    }
+                    outlinePath = [outlinePath stringByAppendingString:EscapeStringForOutlinePath([node heading])];
+                }
+
+                // Finally, add our own heading to the outline path
+                if ([outlinePath characterAtIndex:[outlinePath length]-1] != ':') {
+                    outlinePath = [outlinePath stringByAppendingString:@"/"];
+                }
+                outlinePath = [outlinePath stringByAppendingString:EscapeStringForOutlinePath(title)];
+
+                // Create the shadow for this entry
+                OrgShadowNode *node = [OrgShadowNode new];
+                node.heading = title;
+                node.indentLevel = numStars;
+                node.sequenceIndex = sequenceIndex;
+                node.outlinePath = outlinePath;
+                node.todoState = todoState;
+                node.inheritedTags = inheritedTags;
+                node.tags = tags;
+                node.priority = priority;
+                node.readOnly = readOnlyFile;
+                [(OrgShadowNode *)[nodeStack lastObject] addChildShadow:node];
+
+                if( numStars > lastNumStars + 1){
+                    [nodeStack addObject:node];
+                }
+                // Push this node onto the nodeStack
+                [nodeStack addObject:node];
+
+                // Maintain the indent level of this heading so we can see if the next heading is
+                // the same level or not
+                lastNumStars = numStars;
+
+                // Hold onto the last used node, so we can attach body text to it
+                lastNode = node;
+            }
+
+            // This handles lines that are children of a node but not headlines, thus body text.
+            if (numStars == 0 && lastNode) {
+
+                // Extract IDs
+                NSRange idRange = [line rangeOfString:@":ID: "];
+                if (idRange.location != NSNotFound) {
+                    NSString *nodeId = [line substringFromIndex:(idRange.location+idRange.length)];
+                    nodeId = [nodeId stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+                    [lastNode setNodeId:nodeId];
+                } else {
+                    NSRange originalIdRange = [line rangeOfString:@":ORIGINAL_ID: "];
+                    if (originalIdRange.location != NSNotFound) {
+                        NSString *nodeId = [line substringFromIndex:originalIdRange.location+originalIdRange.length];
+                        nodeId = [nodeId stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+                        [lastNode setReferencedNodeId:nodeId];
+                        [lastNode setReadOnly:false];
+                    }
+                }
+
+                // Accumulate the body in one pass (same result as -parse:'s
+                // recopy-every-line logic: an empty first body line yields an
+                // empty body, and blank lines between content are preserved).
+                [lastNode appendBodyLine:line];
+            }
+        }
+    }
+
+    // Materialize accumulated body buffers, depth-first over the tree.
+    {
+        NSMutableArray *stack = [NSMutableArray arrayWithObject:root];
+        while ([stack count] > 0) {
+            OrgShadowNode *node = [stack lastObject];
+            [stack removeLastObject];
+            [node finalizeBody];
+            [stack addObjectsFromArray:node.children];
+        }
+    }
+
+    return root;
 }
 
 @end

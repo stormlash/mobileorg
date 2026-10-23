@@ -54,6 +54,9 @@
                   Identifier = "WebDavSyncContractTests">
                </Test>
                <Test
+                  Identifier = "WebDavIncrementalImportTests">
+               </Test>
+               <Test
                   Identifier = "SyncTimingCaptureTests">
                </Test>
             </SkippedTests>

@@ -190,6 +190,7 @@ jobs:
             -destination "$SIMULATOR_DESTINATION" \
             -only-testing:MobileOrgTests/WebDavTests \
             -only-testing:MobileOrgTests/WebDavSyncContractTests \
+            -only-testing:MobileOrgTests/WebDavIncrementalImportTests \
             -only-testing:MobileOrgTests/SyncTimingCaptureTests \
             CODE_SIGNING_ALLOWED=NO \
             2>&1 | tee /tmp/xcodebuild-webdav.log | xcbeautify

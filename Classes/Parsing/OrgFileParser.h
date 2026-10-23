@@ -23,6 +23,34 @@
 #import <Foundation/Foundation.h>
 #import <CoreData/CoreData.h>
 
+// Transient, context-free stand-in for a Node, produced by parseToShadow and
+// consumed by OrgShadowImporter. Holds exactly the fields the old
+// delete-then-reparse path used to set, so the diff-apply can update nodes in
+// place instead of rebuilding them.
+@interface OrgShadowNode : NSObject
+
+@property (nonatomic, copy) NSString *heading;
+@property (nonatomic, assign) int indentLevel;
+@property (nonatomic, assign) int sequenceIndex;
+@property (nonatomic, copy) NSString *todoState;
+@property (nonatomic, copy) NSString *priority;
+@property (nonatomic, copy) NSString *tags;
+@property (nonatomic, copy) NSString *inheritedTags;
+@property (nonatomic, copy) NSString *body;
+@property (nonatomic, copy) NSString *nodeId;
+@property (nonatomic, copy) NSString *referencedNodeId;
+@property (nonatomic, assign) bool readOnly;
+@property (nonatomic, copy) NSString *outlinePath;
+
+// Complete tags = own tags plus those inherited from ancestors (same rule as
+// -[Node completeTags]).
+- (NSString *)completeTags;
+
+@property (nonatomic, readonly) OrgShadowNode *parent;
+@property (nonatomic, readonly) NSArray<OrgShadowNode *> *children;
+
+@end
+
 @interface OrgFileParser : NSObject {
     __unsafe_unretained id delegate;
     SEL completionSelector;
@@ -38,5 +66,12 @@
 @property (nonatomic, copy) NSString *errorStr;
 
 - (void)parse:(NSManagedObjectContext *)moc;
+
+// Parses the staged local file into a transient shadow tree without touching
+// Core Data. On success returns the file-level shadow root (heading is the
+// decoded org filename, indentLevel 0). On a read or decode failure returns
+// nil and sets errorStr — the caller must then leave the stored outline for
+// this file untouched.
+- (OrgShadowNode *)parseToShadow;
 
 @end

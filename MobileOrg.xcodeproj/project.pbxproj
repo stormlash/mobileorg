@@ -94,6 +94,7 @@
 		7998B07A1079847C0000ED49 /* up.png in Resources */ = {isa = PBXBuildFile; fileRef = 7998B06A1079847C0000ED49 /* up.png */; };
 		79BA55621073A6F800D67917 /* MobileOrgAppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 79BA555B1073A6F800D67917 /* MobileOrgAppDelegate.m */; };
 		79CB17F9107420E300A7E065 /* SyncManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 79CB17F8107420E300A7E065 /* SyncManager.m */; };
+		7AE6E0C01FE700000000001B /* OrgShadowImporter.m in Sources */ = {isa = PBXBuildFile; fileRef = 7AE6E0C01FE700000000001A /* OrgShadowImporter.m */; };
 		79CB1821107425EF00A7E065 /* TransferContext.m in Sources */ = {isa = PBXBuildFile; fileRef = 79CB1820107425EF00A7E065 /* TransferContext.m */; };
 		79CB1824107425F500A7E065 /* TransferManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 79CB1823107425F500A7E065 /* TransferManager.m */; };
 		79CB183E1074279C00A7E065 /* Settings.m in Sources */ = {isa = PBXBuildFile; fileRef = 79CB183D1074279C00A7E065 /* Settings.m */; };
@@ -257,6 +258,8 @@
 		79BA555B1073A6F800D67917 /* MobileOrgAppDelegate.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = MobileOrgAppDelegate.m; sourceTree = "<group>"; };
 		79CB17F7107420E300A7E065 /* SyncManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SyncManager.h; sourceTree = "<group>"; };
 		79CB17F8107420E300A7E065 /* SyncManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SyncManager.m; sourceTree = "<group>"; };
+		7AE6E0C01FE700000000001A /* OrgShadowImporter.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = OrgShadowImporter.m; sourceTree = "<group>"; };
+		7AE6E0C01FE700000000001C /* OrgShadowImporter.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OrgShadowImporter.h; sourceTree = "<group>"; };
 		79CB181F107425EF00A7E065 /* TransferContext.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TransferContext.h; sourceTree = "<group>"; };
 		79CB1820107425EF00A7E065 /* TransferContext.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TransferContext.m; sourceTree = "<group>"; };
 		79CB1822107425F500A7E065 /* TransferManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TransferManager.h; sourceTree = "<group>"; };
@@ -649,6 +652,8 @@
 				7945F59E11A8064800731598 /* WebDav */,
 				79CB17F7107420E300A7E065 /* SyncManager.h */,
 				79CB17F8107420E300A7E065 /* SyncManager.m */,
+				7AE6E0C01FE700000000001C /* OrgShadowImporter.h */,
+				7AE6E0C01FE700000000001A /* OrgShadowImporter.m */,
 				79CB181F107425EF00A7E065 /* TransferContext.h */,
 				79CB1820107425EF00A7E065 /* TransferContext.m */,
 				79CB1822107425F500A7E065 /* TransferManager.h */,
@@ -970,6 +975,7 @@
 				7982F37D1073F6B700AEA6BC /* GlobalUtils.m in Sources */,
 				7982F3BA1073FBF800AEA6BC /* DataUtils.m in Sources */,
 				79CB17F9107420E300A7E065 /* SyncManager.m in Sources */,
+				7AE6E0C01FE700000000001B /* OrgShadowImporter.m in Sources */,
 				54CD6303234BC9A200D485E1 /* RoundedLabel.swift in Sources */,
 				79CB1821107425EF00A7E065 /* TransferContext.m in Sources */,
 				79CB1824107425F500A7E065 /* TransferManager.m in Sources */,

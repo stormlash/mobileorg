@@ -28,6 +28,7 @@
 #import "GlobalUtils.h"
 #import "ChecksumFileParser.h"
 #import "OrgFileParser.h"
+#import "OrgShadowImporter.h"
 #import "EditsFileParser.h"
 #import "EditEntity.h"
 #import "Node.h"
@@ -57,7 +58,6 @@
 - (void)doneDownloadingOrgFiles;
 - (void)findAndFetchLinksForNode:(Node*)node;
 - (void)processOrgFile:(NSString*)orgFilename withLocalFile:(NSString*)localFilename;
-- (void)doneProcessingOrgFile;
 - (void)applyEdits;
 - (void)doneApplyingEdits;
 @end
@@ -102,8 +102,6 @@ static void SyncImportSecondsAdd(double seconds) {
         downloadedFiles = [NSMutableArray new];
         checksumParser = [ChecksumFileParser new];
         orgFileParser = [OrgFileParser new];
-        [orgFileParser setDelegate:self];
-        [orgFileParser setCompletionSelector:@selector(doneProcessingOrgFile)];
         editsFileParser = [EditsFileParser new];
         [editsFileParser setDelegate:self];
         changedEditsFile = false;
@@ -640,47 +638,31 @@ static void SyncImportSecondsAdd(double seconds) {
 - (void)processOrgFile:(NSString*)orgFilename withLocalFile:(NSString*)localFilename {
     [[StatusViewController instance] setActionMessage:[NSString stringWithFormat:@"Processing %@", orgFilename]];
 
-    // Setup the OrgFileParser
-
     [orgFileParser setOrgFilename:[orgFilename stringByRemovingPercentEncoding]];
     [orgFileParser setLocalFilename:localFilename];
 
-    // Kick it off on its own thread
-    // Disable this for now, let's just do it on the main thread
-    // HACK We are seeing some weird coredata issues with the multiple threads
-    // Perhaps we need to use a different context and a single coordinator or something
-    // Lookup multithreaded coredata issues
-    //[NSThread detachNewThreadSelector:@selector(parse) toTarget:orgFileParser withObject:nil];
+    // Incremental import: parse the download into a transient shadow (no
+    // Core Data writes yet), then diff it against the file's stored subtree.
+    // The whole delta commits with the single Save() below — a download that
+    // fails to parse leaves the stored outline untouched (the old path
+    // replaced it with a single error node), and headings that did not
+    // change keep their Core Data identity across imports.
+    OrgShadowNode *shadow = [orgFileParser parseToShadow];
 
-    NSManagedObjectContext *moc = PersistenceStack.shared.moc;
-    [orgFileParser parse: moc];
-
-    // Pause the TransferManager, because otherwise it would try to download
-    // more files while this one is processing
-    // HACK re-enable this when we put the [detach] back in place above
-    //[[TransferManager instance] pause];
-}
-
-// This is the callback method for when parsing is done
-- (void)doneProcessingOrgFile {
-
-    // TODO: if success, do this.  otherwise, abort then resume the transfer manager.
-
-    // If not success then remove the entry from the checksumpairs, we want to
-    // retry downloading it next sync.
-    if (orgFileParser.errorStr && ![orgFileParser.errorStr isEqualToString:@""]) {
-        [checksumParser.checksumPairs removeObjectForKey:NodeWithFilename([orgFileParser orgFilename]).heading];
+    if (shadow != nil) {
+        [OrgShadowImporter applyShadow:shadow forFilename:[orgFileParser orgFilename]];
+    } else {
+        // Keep the stored outline, and drop this file's checksum pair so the
+        // next sync re-downloads and retries it. Keyed by the decoded
+        // filename, the same key the file node's heading carries.
+        [checksumParser.checksumPairs removeObjectForKey:[orgFileParser orgFilename]];
     }
-    
-    // Save our database changes
+
+    // The one save for this file's diff; a no-op when the parse failed.
     Save();
 
     // Find and fetch files this node links to
     [self findAndFetchLinksForNode:NodeWithFilename([orgFileParser orgFilename])];
-
-    // The transfer manager may resume normal operation now
-    // HACK re-enable this when we put the [detach] back in place above
-    //[[TransferManager instance] resume];
 
     // Delete the org file
     if (![[orgFileParser localFilename] isEqualToString:FileWithName(@"mobileorg.org")]) {
@@ -820,14 +802,12 @@ static void SyncImportSecondsAdd(double seconds) {
                     NSLog(@"Fix me, unsupported server mode!");
                     break;
             }
-            // The previous outline is replaced only once the replacement
-            // download has actually arrived: deleting earlier would leave
-            // the tree emptied out when a download is interrupted mid-flight.
-            DeleteNodesWithFilename(orgFilename);
+            // Incremental import replaced the delete-then-reparse flow: the
+            // stored outline for this file is only touched once its download
+            // has actually arrived and parsed, and only by the diff.
 
-            // Time the whole import step (delete + parse today; parse + diff
-            // apply + save once incremental import lands) for the timing
-            // capture on both fixture profiles.
+            // Time the whole import step (parse + diff apply + save) for the
+            // timing capture on both fixture profiles.
             CFAbsoluteTime importStart = CFAbsoluteTimeGetCurrent();
             [self processOrgFile:orgFilename withLocalFile:[context localFile]];
             SyncImportSecondsAdd(CFAbsoluteTimeGetCurrent() - importStart);

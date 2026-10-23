@@ -27,3 +27,4 @@
 #import "LocalEditAction.h"
 #import "ChecksumFileParser.h"
 #import "GlobalUtils.h"
+#import "OrgShadowImporter.h"

@@ -42,6 +42,19 @@ final class SyncTimingCaptureTests: WebDavSyncTestCase {
     print("TIMING profile=\(profile) phase=\(phase) run=\(run) syncSeconds=\(sync) importSeconds=\(imp)")
   }
 
+  /// Total nodes in a shadow tree, root included — used by the diagnostics
+  /// that reproduce the sync pipeline in-process.
+  private func shadowCount(_ root: OrgShadowNode) -> Int {
+    var total = 0
+    var stack = [root]
+    while !stack.isEmpty {
+      let node = stack.removeLast()
+      total += 1
+      stack.append(contentsOf: node.children)
+    }
+    return total
+  }
+
   /// Server-side staging change for either fixture profile. The shared test
   /// helper pins its regex to 32-hex md5sum lines, but the legacy profile's
   /// checksums.dat legitimately mixes md5sum and 40-hex shasum lines — the
@@ -117,6 +130,60 @@ final class SyncTimingCaptureTests: WebDavSyncTestCase {
         .map { "\($0.indentLevel ?? 0)|\($0.heading ?? "")" }
         .sorted()
       print("DIAG-TEST \(target) after changed sync \(i): \(stored.count) nodes: \(stored.joined(separator: ", "))")
+
+      // Pipeline reproduction on the exact staged bytes (diagnostic only):
+      // the sync's steps, run in-process where output reaches the log.
+      let cipherURL = FileManager.default.temporaryDirectory
+        .appendingPathComponent("diag-cipher-\(i)-sample.org")
+      try contents.write(to: cipherURL)
+      let readBack = ReadPossiblyEncryptedFile(cipherURL.path, nil)
+      print("DIAG-TEST read-step: \(readBack == nil ? "NIL" : "ok, tail=\(readBack!.suffix(20).debugDescription)")")
+      let rawPlain = (contents as NSData).aes256Decrypt(withKey: password)
+      print("DIAG-TEST raw decrypt: \(rawPlain == nil ? "NIL" : "ok, \(rawPlain!.count) bytes")")
+
+      let cipherParser = OrgFileParser()
+      cipherParser.localFilename = cipherURL.path
+      cipherParser.orgFilename = target
+      let cipherShadow = cipherParser.parseToShadow()
+      if cipherShadow == nil {
+        print("DIAG-TEST cipher-path parse: FAILED (\(cipherParser.errorStr ?? "no errorStr"))")
+      } else {
+        print("DIAG-TEST cipher-path parse: ok, \(shadowCount(cipherShadow!)) shadow nodes")
+      }
+
+      if let rawPlain = rawPlain {
+        let plainURL = FileManager.default.temporaryDirectory
+          .appendingPathComponent("diag-plain-\(i)-sample.org")
+        try (rawPlain as Data).write(to: plainURL)
+        let plainParser = OrgFileParser()
+        plainParser.localFilename = plainURL.path
+        plainParser.orgFilename = target
+        let plainShadow = plainParser.parseToShadow()
+        if plainShadow == nil {
+          print("DIAG-TEST plain parse: FAILED (\(plainParser.errorStr ?? "no errorStr"))")
+        } else {
+          print("DIAG-TEST plain parse: ok, \(shadowCount(plainShadow!)) shadow nodes")
+          OrgShadowImporter.applyShadow(plainShadow!, forFilename: target)
+          do {
+            try moc!.save()
+            print("DIAG-TEST direct save: ok, count=\(try nodeCount(inFile: target))")
+          } catch {
+            print("DIAG-TEST direct save: FAILED — \(error)")
+          }
+          // Undo the insertion so this stays a pure diagnostic and the
+          // capture keeps failing on the sync behavior itself.
+          let probes = (try fetchNodes()).filter {
+            $0.ownerFile() == target && ($0.heading ?? "").hasPrefix("Timing probe")
+          }
+          for p in probes { moc!.delete(p) }
+          do {
+            try moc!.save()
+            print("DIAG-TEST undo: removed=\(probes.count), count=\(try nodeCount(inFile: target))")
+          } catch {
+            print("DIAG-TEST undo save: FAILED — \(error)")
+          }
+        }
+      }
 
       // Sanity only: the import must actually have happened (one new node),
       // or the numbers describe a no-op rather than an import.

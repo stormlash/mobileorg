@@ -42,6 +42,23 @@ final class SyncTimingCaptureTests: WebDavSyncTestCase {
     print("TIMING profile=\(profile) phase=\(phase) run=\(run) syncSeconds=\(sync) importSeconds=\(imp)")
   }
 
+  /// Server-side staging change for either fixture profile. The shared test
+  /// helper pins its regex to 32-hex md5sum lines, but the legacy profile's
+  /// checksums.dat legitimately mixes md5sum and 40-hex shasum lines — the
+  /// app's own ChecksumFileParser accepts both. Mirror the app's tolerance
+  /// here so the encrypted profile can stage timing probes too.
+  private func updateFixtureFileAnyHashFormat(_ name: String, contents: Data) throws {
+    try putFixtureFile(name, contents: contents)
+    var checksums = String(decoding: try fetchFixtureFile("checksums.dat"), as: UTF8.self)
+    let pattern = "(?m)^(?:[0-9a-f]{32}|[0-9a-f]{40})  \(NSRegularExpression.escapedPattern(for: name))$"
+    guard let range = checksums.range(of: pattern, options: .regularExpression) else {
+      XCTFail("checksums.dat has no checksum line for \(name)")
+      return
+    }
+    checksums.replaceSubrange(range, with: "\(md5Hex(contents))  \(name)")
+    try putFixtureFile("checksums.dat", contents: Data(checksums.utf8))
+  }
+
   /// The capture plan: reset the profile, time the cold whole-tree import,
   /// then stage a single-file change three times (the way Emacs would push
   /// small deltas) and time each changed-file sync.
@@ -83,7 +100,7 @@ final class SyncTimingCaptureTests: WebDavSyncTestCase {
       } else {
         contents.append(Data("* Timing probe \(i)\n".utf8))
       }
-      try updateFixtureFile(target, contents: contents)
+      try updateFixtureFileAnyHashFormat(target, contents: contents)
 
       SyncManager.resetImportSeconds()
       let start = Date()

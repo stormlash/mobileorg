@@ -130,15 +130,21 @@ static void IndexStoredIds(Node *node, NSMutableDictionary *idIndex) {
             continue;
         }
         Node *match = idIndex[shadow.nodeId];
-        if (!match || [matched containsObject:match.objectID]) {
-            continue;
+        if (match && ![matched containsObject:match.objectID]) {
+            [matched addObject:match.objectID];
+            if (match.parent != nodeParent) {
+                match.parent = nodeParent;
+            }
+            [self updateNode:match fromShadow:shadow];
+            [self applyShadowChildren:shadow toNode:match idIndex:idIndex matched:matched toDelete:toDelete];
+        } else {
+            // No unused stored node carries this :ID: — either a genuinely new
+            // node or a duplicate id in the file. Insert it, which is what the
+            // legacy wipe-and-rebuild import did with every parsed node.
+            // Skipping here dropped every ID-bearing node on cold imports.
+            Node *inserted = [self insertNodeFromShadow:shadow withParent:nodeParent inContext:managedObjectContext];
+            [self applyShadowChildren:shadow toNode:inserted idIndex:idIndex matched:matched toDelete:toDelete];
         }
-        [matched addObject:match.objectID];
-        if (match.parent != nodeParent) {
-            match.parent = nodeParent;
-        }
-        [self updateNode:match fromShadow:shadow];
-        [self applyShadowChildren:shadow toNode:match idIndex:idIndex matched:matched toDelete:toDelete];
     }
 
     // Pass 2: (parent, indent level, heading) fallback for ID-less entries.

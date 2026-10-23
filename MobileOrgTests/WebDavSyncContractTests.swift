@@ -323,6 +323,20 @@ class WebDavSyncTestCase: XCTestCase {
 
   // MARK: Node-store assertions
 
+  /// Temporary diagnostic: print the FileChecksum table so the CI log can
+  /// distinguish "checksum entries missing" from "checksum pairs missing" in
+  /// the download gate. Remove once the checksum contract pins green.
+  func dumpChecksumTable(_ label: String) {
+    let request = NSFetchRequest<NSManagedObject>(entityName: "FileChecksum")
+    let entries = (try? moc?.fetch(request)) ?? []
+    print("DIAG[\(label)] FileChecksum count: \(entries.count)")
+    for entry in entries {
+      let name = entry.value(forKey: "filename") ?? "?"
+      let value = entry.value(forKey: "checksum") ?? "nil"
+      print("DIAG[\(label)] FileChecksum \(name) = \(value)")
+    }
+  }
+
   func fetchNodes(matching predicate: NSPredicate? = nil) throws -> [Node] {
     let request = NSFetchRequest<Node>(entityName: "Node")
     request.predicate = predicate
@@ -392,9 +406,11 @@ final class WebDavSyncContractTests: WebDavSyncTestCase {
 
     syncAndWait()
     assertNodeCounts(match: manifest)
+    dumpChecksumTable("contract-1 after sync 1")
 
     let cutoff2 = try latestSequence(after: cutoff1)
     syncAndWait()
+    dumpChecksumTable("contract-1 after sync 2")
 
     let window = try fixtureRequests(since: cutoff2)
     XCTAssertTrue(window.contains { $0.method == "GET" && $0.path == "/checksums.dat" },
@@ -432,6 +448,7 @@ final class WebDavSyncContractTests: WebDavSyncTestCase {
 
     let cutoff3 = try latestSequence(after: cutoff2)
     syncAndWait()
+    dumpChecksumTable("contract-2 after sync 3")
     let thirdWindow = try fixtureRequests(since: cutoff3)
     XCTAssertFalse(thirdWindow.contains { $0.path == "/mobileorg.org" },
                    "after the no-op upload, the next sync is back to contract (1) (saw \(thirdWindow))")

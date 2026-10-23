@@ -570,8 +570,9 @@ static SyncManager *gInstance = NULL;
     // First, see if we have a filechecksum for this file
     bool downloadFile = true;
     NSString *existingChecksum = ChecksumForFile(name);
+    NSString *newChecksum = nil;
     if (existingChecksum) {
-        NSString *newChecksum = [checksumParser.checksumPairs objectForKey:name];
+        newChecksum = [checksumParser.checksumPairs objectForKey:name];
         if (newChecksum) {
             if ([existingChecksum isEqualToString:newChecksum] && [existingChecksum length] > 0) {
                 // Matching checksum, no need to download the file
@@ -579,6 +580,9 @@ static SyncManager *gInstance = NULL;
             }
         }
     }
+    // TODO(harness): temporary diagnostic for the regression suite; remove
+    // once the checksum-gate behavior is pinned by green CI.
+    NSLog(@"DIAG downloadOrgFile %@ stored=%@ pair=%@ decide=%d", name, existingChecksum, newChecksum, downloadFile);
 
     // Since we changed the edits file, no need to redownload it
     bool dummyDownloadHack = false;

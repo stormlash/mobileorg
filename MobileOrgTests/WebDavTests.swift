@@ -70,10 +70,15 @@ final class WebDavTests: WebDavSyncTestCase {
     let cutoff = try latestSequence(after: 0)
     syncAndWait()
 
+    // The sync may have re-downloaded and re-imported staged files, which
+    // deletes and recreates nodes; assert on a fresh fetch, never on the
+    // pre-sync reference (a deleted object reads back as nil properties).
+    let syncedNode = try fetchSingleNode(heading: "Seamless integration of Cloud services")
+
     let window = try fixtureRequests(since: cutoff)
     XCTAssertEqual(window.filter { $0.method == "PUT" && $0.path == "/mobileorg.org" }.count, 1,
                    "the tag edit must upload exactly one edits-file PUT (saw \(window))")
-    XCTAssertEqual(node.tags, ":Test456:")
+    XCTAssertEqual(syncedNode.tags, ":Test456:")
   }
 
   func testSyncChangesOnMobileReverse() throws {
@@ -102,9 +107,12 @@ final class WebDavTests: WebDavSyncTestCase {
     let cutoff = try latestSequence(after: 0)
     syncAndWait()
 
+    // Fresh fetch: the removal sync may re-import the file holding the node.
+    let syncedNode = try fetchSingleNode(heading: "Seamless integration of Cloud services")
+
     let window = try fixtureRequests(since: cutoff)
     XCTAssertEqual(window.filter { $0.method == "PUT" && $0.path == "/mobileorg.org" }.count, 1,
                    "the tag removal must upload exactly one edits-file PUT (saw \(window))")
-    XCTAssertEqual(node.tags, "::")
+    XCTAssertEqual(syncedNode.tags, "::")
   }
 }

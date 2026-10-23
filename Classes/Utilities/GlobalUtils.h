@@ -45,6 +45,6 @@ BOOL IsIpad(void);
 NSString *ReadPossiblyEncryptedFile(NSString *filename, NSString * __strong *error);
 
 @interface NSData (AES256)
-- (NSData *)AES256EncryptWithKey:(NSString *)passphrase;
-- (NSData *)AES256DecryptWithKey:(NSString *)passphrase;
+- (NSData *)AES256EncryptWithKey:(NSString *)passphrase NS_SWIFT_NAME(aes256Encrypt(withKey:));
+- (NSData *)AES256DecryptWithKey:(NSString *)passphrase NS_SWIFT_NAME(aes256Decrypt(withKey:));
 @end

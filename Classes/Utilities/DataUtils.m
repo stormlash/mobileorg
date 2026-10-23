@@ -41,6 +41,9 @@ bool Save() {
 
     // Call save
     if (![managedObjectContext save:&error]) {
+        // A silently-discarded save looks identical to an import that never
+        // ran; surface the reason so sync diagnostics aren't blind to it.
+        NSLog(@"DIAG Save failed: %@", error);
         return false;
     }
 

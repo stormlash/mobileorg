@@ -36,6 +36,7 @@
 		744408DE1E035A1800BCE192 /* DropboxTransferManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 744408DD1E035A1800BCE192 /* DropboxTransferManager.swift */; };
 		744787E01EB265A700631BA2 /* WebDavTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 744787DF1EB265A700631BA2 /* WebDavTests.swift */; };
 		7AE6E0C01FE7000000000002 /* WebDavSyncContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AE6E0C01FE7000000000001 /* WebDavSyncContractTests.swift */; };
+		7AE6E0C01FE700000000000B /* WebDavIncrementalImportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AE6E0C01FE700000000000A /* WebDavIncrementalImportTests.swift */; };
 		7AE6E0C01FE7000000000004 /* ChecksumFileParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AE6E0C01FE7000000000003 /* ChecksumFileParserTests.swift */; };
 		744787E21EB3198D00631BA2 /* PersistenceStack.swift in Sources */ = {isa = PBXBuildFile; fileRef = 744787E11EB3198D00631BA2 /* PersistenceStack.swift */; };
 		744EF0401E4666B200DB1E81 /* MobileOrgTestingSample.org in Resources */ = {isa = PBXBuildFile; fileRef = 744EF03F1E4666B200DB1E81 /* MobileOrgTestingSample.org */; };
@@ -93,6 +94,7 @@
 		7998B07A1079847C0000ED49 /* up.png in Resources */ = {isa = PBXBuildFile; fileRef = 7998B06A1079847C0000ED49 /* up.png */; };
 		79BA55621073A6F800D67917 /* MobileOrgAppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 79BA555B1073A6F800D67917 /* MobileOrgAppDelegate.m */; };
 		79CB17F9107420E300A7E065 /* SyncManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 79CB17F8107420E300A7E065 /* SyncManager.m */; };
+		7AE6E0C01FE700000000001B /* OrgShadowImporter.m in Sources */ = {isa = PBXBuildFile; fileRef = 7AE6E0C01FE700000000001A /* OrgShadowImporter.m */; };
 		79CB1821107425EF00A7E065 /* TransferContext.m in Sources */ = {isa = PBXBuildFile; fileRef = 79CB1820107425EF00A7E065 /* TransferContext.m */; };
 		79CB1824107425F500A7E065 /* TransferManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 79CB1823107425F500A7E065 /* TransferManager.m */; };
 		79CB183E1074279C00A7E065 /* Settings.m in Sources */ = {isa = PBXBuildFile; fileRef = 79CB183D1074279C00A7E065 /* Settings.m */; };
@@ -171,6 +173,7 @@
 		744408DD1E035A1800BCE192 /* DropboxTransferManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = DropboxTransferManager.swift; path = Dropbox/DropboxTransferManager.swift; sourceTree = "<group>"; };
 		744787DF1EB265A700631BA2 /* WebDavTests.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = WebDavTests.swift; sourceTree = "<group>"; };
 		7AE6E0C01FE7000000000001 /* WebDavSyncContractTests.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = WebDavSyncContractTests.swift; sourceTree = "<group>"; };
+		7AE6E0C01FE700000000000A /* WebDavIncrementalImportTests.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = WebDavIncrementalImportTests.swift; sourceTree = "<group>"; };
 		7AE6E0C01FE7000000000003 /* ChecksumFileParserTests.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ChecksumFileParserTests.swift; sourceTree = "<group>"; };
 		744787E11EB3198D00631BA2 /* PersistenceStack.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PersistenceStack.swift; sourceTree = "<group>"; };
 		744EF03F1E4666B200DB1E81 /* MobileOrgTestingSample.org */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = MobileOrgTestingSample.org; sourceTree = "<group>"; };
@@ -255,6 +258,8 @@
 		79BA555B1073A6F800D67917 /* MobileOrgAppDelegate.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = MobileOrgAppDelegate.m; sourceTree = "<group>"; };
 		79CB17F7107420E300A7E065 /* SyncManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SyncManager.h; sourceTree = "<group>"; };
 		79CB17F8107420E300A7E065 /* SyncManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SyncManager.m; sourceTree = "<group>"; };
+		7AE6E0C01FE700000000001A /* OrgShadowImporter.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = OrgShadowImporter.m; sourceTree = "<group>"; };
+		7AE6E0C01FE700000000001C /* OrgShadowImporter.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OrgShadowImporter.h; sourceTree = "<group>"; };
 		79CB181F107425EF00A7E065 /* TransferContext.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TransferContext.h; sourceTree = "<group>"; };
 		79CB1820107425EF00A7E065 /* TransferContext.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TransferContext.m; sourceTree = "<group>"; };
 		79CB1822107425F500A7E065 /* TransferManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TransferManager.h; sourceTree = "<group>"; };
@@ -476,6 +481,7 @@
 				7419FA531E20DAC900F0EA45 /* SettingsTest.swift */,
 				744787DF1EB265A700631BA2 /* WebDavTests.swift */,
 				7AE6E0C01FE7000000000001 /* WebDavSyncContractTests.swift */,
+				7AE6E0C01FE700000000000A /* WebDavIncrementalImportTests.swift */,
 				7AE6E0C01FE7000000000003 /* ChecksumFileParserTests.swift */,
 			);
 			path = MobileOrgTests;
@@ -646,6 +652,8 @@
 				7945F59E11A8064800731598 /* WebDav */,
 				79CB17F7107420E300A7E065 /* SyncManager.h */,
 				79CB17F8107420E300A7E065 /* SyncManager.m */,
+				7AE6E0C01FE700000000001C /* OrgShadowImporter.h */,
+				7AE6E0C01FE700000000001A /* OrgShadowImporter.m */,
 				79CB181F107425EF00A7E065 /* TransferContext.h */,
 				79CB1820107425EF00A7E065 /* TransferContext.m */,
 				79CB1822107425F500A7E065 /* TransferManager.h */,
@@ -967,6 +975,7 @@
 				7982F37D1073F6B700AEA6BC /* GlobalUtils.m in Sources */,
 				7982F3BA1073FBF800AEA6BC /* DataUtils.m in Sources */,
 				79CB17F9107420E300A7E065 /* SyncManager.m in Sources */,
+				7AE6E0C01FE700000000001B /* OrgShadowImporter.m in Sources */,
 				54CD6303234BC9A200D485E1 /* RoundedLabel.swift in Sources */,
 				79CB1821107425EF00A7E065 /* TransferContext.m in Sources */,
 				79CB1824107425F500A7E065 /* TransferManager.m in Sources */,
@@ -1018,6 +1027,7 @@
 				747BF9A31DFD738E00E800FB /* NodeTests.m in Sources */,
 				744787E01EB265A700631BA2 /* WebDavTests.swift in Sources */,
 				7AE6E0C01FE7000000000002 /* WebDavSyncContractTests.swift in Sources */,
+				7AE6E0C01FE700000000000B /* WebDavIncrementalImportTests.swift in Sources */,
 				7AE6E0C01FE7000000000004 /* ChecksumFileParserTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

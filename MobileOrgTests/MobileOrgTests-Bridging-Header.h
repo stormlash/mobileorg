@@ -26,3 +26,4 @@
 #import "TagEditController.h"
 #import "LocalEditAction.h"
 #import "ChecksumFileParser.h"
+#import "GlobalUtils.h"

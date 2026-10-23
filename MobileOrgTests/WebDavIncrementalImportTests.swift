@@ -138,7 +138,7 @@ final class WebDavIncrementalImportTests: WebDavSyncTestCase {
     for heading in headings {
       let node = try fetchSingleNode(heading: heading)
       snapshot[heading] = IdentitySnapshot(
-        objectURI: node.objectID.uriRepresentation().stringValue,
+        objectURI: node.objectID.uriRepresentation().absoluteString,
         nodeId: node.nodeId ?? "",
         outlinePath: node.outlinePath ?? "")
     }
@@ -197,7 +197,7 @@ final class WebDavIncrementalImportTests: WebDavSyncTestCase {
     syncAndWait()
 
     let childBefore = try fetchSingleNode(heading: "Call three contractors for quotes")
-    let childURIBefore = childBefore.objectID.uriRepresentation().stringValue
+    let childURIBefore = childBefore.objectID.uriRepresentation().absoluteString
 
     var contents = String(decoding: try fetchFixtureFile("home.org.txt"), as: UTF8.self)
     XCTAssertTrue(contents.contains("** NEXT Renovate the kitchen\n"))
@@ -210,7 +210,7 @@ final class WebDavIncrementalImportTests: WebDavSyncTestCase {
     // match a changed heading — the spec's accepted hard edge), but the
     // child kept its identity and now hangs under the new name.
     let child = try fetchSingleNode(heading: "Call three contractors for quotes")
-    XCTAssertEqual(child.objectID.uriRepresentation().stringValue, childURIBefore)
+    XCTAssertEqual(child.objectID.uriRepresentation().absoluteString, childURIBefore)
     XCTAssertEqual(child.parent?.heading, "Remodel the kitchen")
     XCTAssertEqual(child.outlinePath,
                    "olp:home.org.txt:Home & Household/Remodel the kitchen/Call three contractors for quotes")
@@ -246,7 +246,7 @@ final class WebDavIncrementalImportTests: WebDavSyncTestCase {
     XCTAssertEqual(firstAfter.objectID, first.objectID, "reorder kept the first node")
     XCTAssertEqual(secondAfter.objectID, second.objectID, "reorder kept the second node")
 
-    let order = (fileNode?.sortedChildren() ?? []).map { $0.heading ?? "" }
+    let order = (fileNode?.sortedChildren() ?? []).compactMap { $0 as? Node }.map { $0.heading ?? "" }
     XCTAssertEqual(order.first, "Email Dana about the ladder rental")
     XCTAssertEqual(order.count > 1 ? order[1] : "", "Get the gutters cleaned before November")
   }
@@ -259,7 +259,7 @@ final class WebDavIncrementalImportTests: WebDavSyncTestCase {
     syncAndWait()
 
     let sibling = try fetchSingleNode(heading: "Season ticket logistics")
-    let siblingURI = sibling.objectID.uriRepresentation().stringValue
+    let siblingURI = sibling.objectID.uriRepresentation().absoluteString
 
     var contents = String(decoding: try fetchFixtureFile("home.org.txt"), as: UTF8.self)
     let block = "** WAITING Home insurance claim\n" +
@@ -278,7 +278,7 @@ final class WebDavIncrementalImportTests: WebDavSyncTestCase {
     XCTAssertEqual(removed.count, 0)
 
     let siblingAfter = try fetchSingleNode(heading: "Season ticket logistics")
-    XCTAssertEqual(siblingAfter.objectID.uriRepresentation().stringValue, siblingURI)
+    XCTAssertEqual(siblingAfter.objectID.uriRepresentation().absoluteString, siblingURI)
   }
 
   // A downloaded file that cannot be decoded must not touch the stored
@@ -360,8 +360,8 @@ final class OrgShadowParityTests: XCTestCase {
 
   private func assertParity(_ node: Node, _ shadow: OrgShadowNode, path: String) {
     XCTAssertEqual(node.heading ?? "", shadow.heading, "heading @ \(path)")
-    XCTAssertEqual(node.indentLevel?.intValue ?? 0, shadow.indentLevel, "indentLevel @ \(path)")
-    XCTAssertEqual(node.sequenceIndex?.intValue ?? 0, shadow.sequenceIndex, "sequenceIndex @ \(path)")
+    XCTAssertEqual(Int(node.indentLevel?.intValue ?? 0), shadow.indentLevel, "indentLevel @ \(path)")
+    XCTAssertEqual(Int(node.sequenceIndex?.intValue ?? 0), shadow.sequenceIndex, "sequenceIndex @ \(path)")
     XCTAssertEqual(node.todoState ?? "", shadow.todoState, "todoState @ \(path)")
     XCTAssertEqual(node.priority ?? "", shadow.priority, "priority @ \(path)")
     XCTAssertEqual(node.tags ?? "", shadow.tags, "tags @ \(path)")
@@ -372,7 +372,7 @@ final class OrgShadowParityTests: XCTestCase {
     XCTAssertEqual(node.readOnly?.boolValue ?? false, shadow.readOnly, "readOnly @ \(path)")
     XCTAssertEqual(node.outlinePath ?? "", shadow.outlinePath ?? "", "outlinePath @ \(path)")
 
-    let kids = node.sortedChildren()
+    let kids = (node.sortedChildren() ?? []).compactMap { $0 as? Node }
     XCTAssertEqual(kids.count, shadow.children.count, "child count @ \(path)")
     for (index, kid) in kids.enumerated() {
       assertParity(kid, shadow.children[index], path: "\(path)/\(shadow.heading)")

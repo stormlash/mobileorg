@@ -110,6 +110,14 @@ final class SyncTimingCaptureTests: WebDavSyncTestCase {
       reportTiming(profile: profile, phase: "changed", run: i,
                    syncSeconds: sync, importSeconds: importSeconds)
 
+      // Diagnostic: dump the stored headings for the target file so a
+      // frozen count is attributable (parse failure vs save failure vs
+      // apply miss) from the CI log alone.
+      let stored = (try fetchNodes()).filter { $0.ownerFile() == target }
+        .map { "\($0.indentLevel ?? 0)|\($0.heading ?? "")" }
+        .sorted()
+      print("DIAG-TEST \(target) after changed sync \(i): \(stored.count) nodes: \(stored.joined(separator: ", "))")
+
       // Sanity only: the import must actually have happened (one new node),
       // or the numbers describe a no-op rather than an import.
       let expected = manifest.files[target]!.count + i

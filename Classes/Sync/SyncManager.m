@@ -652,6 +652,7 @@ static void SyncImportSecondsAdd(double seconds) {
     if (shadow != nil) {
         [OrgShadowImporter applyShadow:shadow forFilename:[orgFileParser orgFilename]];
     } else {
+        NSLog(@"DIAG processOrgFile %@ parseToShadow returned nil — preserving outline", orgFilename);
         // Keep the stored outline, and drop this file's checksum pair so the
         // next sync re-downloads and retries it. Keyed by the decoded
         // filename, the same key the file node's heading carries.
@@ -659,7 +660,8 @@ static void SyncImportSecondsAdd(double seconds) {
     }
 
     // The one save for this file's diff; a no-op when the parse failed.
-    Save();
+    bool saved = Save();
+    NSLog(@"DIAG processOrgFile %@ parsed=%d saved=%d", orgFilename, shadow != nil, saved);
 
     // Find and fetch files this node links to
     [self findAndFetchLinksForNode:NodeWithFilename([orgFileParser orgFilename])];

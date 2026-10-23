@@ -668,7 +668,7 @@
             // Also handle:   | WORD or | WORD, ie, no todo or no done keywords
             //
             // So we store these as todoStateGroups in Settings.
-            if (isIndex && [[nodeStack lastObject] indentLevel] == 0) {
+            if (isIndex && [[nodeStack lastObject] level] == 0) {
                 NSRange keywordRange = [line rangeOfString:@"#+TODO: "];
                 if (keywordRange.location != NSNotFound) {
 
@@ -727,7 +727,7 @@
 
             // Check for TAGS line, which is the primary index file's way to let us know which
             // tags are 'most important'.
-            if (isIndex && [[nodeStack lastObject] indentLevel] == 0) {
+            if (isIndex && [[nodeStack lastObject] level] == 0) {
 
                 // Get rid of any (t), (d), etc type shortcuts
                 line = [line stringByReplacingOccurrencesOfRegex:@"\\(\\w\\)" withString:@""];
@@ -770,7 +770,7 @@
             }
 
             // Handle #+ALLPRIORITIES
-            if (isIndex && [[nodeStack lastObject] indentLevel] == 0) {
+            if (isIndex && [[nodeStack lastObject] level] == 0) {
                 NSArray *matches = [line captureComponentsMatchedByRegex:@"^#\\+ALLPRIORITIES:\\s(.+)"];
                 if ([matches count] > 0) {
                     NSArray *priorities = [[matches objectAtIndex:1] componentsSeparatedByString:@" "];
@@ -783,7 +783,7 @@
             }
 
             // Check for FILETAGS lines, add those tags to the file node
-            if ([[nodeStack lastObject] indentLevel] == 0) {
+            if ([[nodeStack lastObject] level] == 0) {
 
                 // Get rid of any (t), (d), etc type shortcuts
                 line = [line stringByReplacingOccurrencesOfRegex:@"\\(\\w\\)" withString:@""];
@@ -815,7 +815,7 @@
             }
 
             // Check for #+READONLY
-            if ([[nodeStack lastObject] indentLevel] == 0) {
+            if ([[nodeStack lastObject] level] == 0) {
                 if ([line rangeOfString:@"#+READONLY"].location == 0) {
                     readOnlyFile = true;
                 }
@@ -838,7 +838,7 @@
                 // If this heading has fewer stars than the its parent, pop nodes off
                 // of the nodeStack until we hit this level
                 while (lastNumStars > numStars && [nodeStack count] > 0) {
-                    if ([[nodeStack lastObject] indentLevel] == lastNumStars) {
+                    if ([[nodeStack lastObject] level] == lastNumStars) {
                         [nodeStack removeLastObject];
                     }
                     lastNumStars--;

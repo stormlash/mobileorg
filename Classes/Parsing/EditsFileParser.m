@@ -247,7 +247,11 @@
         }
     }
 
-    [delegate performSelectorOnMainThread:completionSelector withObject:nil waitUntilDone:NO];
+    // Complete inline on the calling thread: the sync manager invokes parse
+    // synchronously on the main queue now, and an async main-thread dispatch
+    // here would let the next transfer's completion interleave ahead of the
+    // edits processing.
+    ((void (*)(id, SEL))[delegate methodForSelector:completionSelector])(delegate, completionSelector);
 }
 
 - (void)reset {

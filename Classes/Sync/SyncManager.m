@@ -200,10 +200,12 @@ static SyncManager *gInstance = NULL;
     // is only handed to us here, not discoverable later).
     downloadedEditsFilename = editsFilename;
 
-    // Parse the changes file
+    // Parse the changes file. Synchronously on the main queue: the parser
+    // resolves edit entities against the main-queue Core Data context
+    // (ResolveNode), so the old detached-thread parse raced the main thread.
     [editsFileParser setEditsFilename:editsFilename];
     [editsFileParser setCompletionSelector:@selector(doneProcessingEditsFile)];
-    [NSThread detachNewThreadSelector:@selector(parse) toTarget:editsFileParser withObject:nil];
+    [editsFileParser parse];
 }
 
 - (void)doneProcessingEditsFile {
@@ -532,7 +534,11 @@ static SyncManager *gInstance = NULL;
     // Delete all of the existing file checksums, they could be invalid
     ClearAllFileChecksums();
 
-    // Create new FileChecksum entries that reflect the current state
+    // Create new FileChecksum entries that reflect the current state.
+    // mobileorg.org has no nodes, but it needs a checksum too: without one,
+    // every later sync re-downloads the edits file even when the server has
+    // not changed (contract: no edits-file GET on a no-op sync).
+    CreateChecksumForFile(@"mobileorg.org", [checksumParser.checksumPairs objectForKey:@"mobileorg.org"]);
     for (Node *node in AllFileNodes()) {
         CreateChecksumForFile(node.heading, [checksumParser.checksumPairs objectForKey:node.heading]);
     }
@@ -674,7 +680,9 @@ static SyncManager *gInstance = NULL;
     if ([[NSFileManager defaultManager] fileExistsAtPath:FileWithName(@"mobileorg.org")]) {
         [editsFileParser setEditsFilename:FileWithName(@"mobileorg.org")];
         [editsFileParser setCompletionSelector:@selector(doneParsingEditsForApplication)];
-        [NSThread detachNewThreadSelector:@selector(parse) toTarget:editsFileParser withObject:nil];
+        // Synchronous on the main queue — same main-queue Core Data rule as
+        // doneDownloadingEditsFile above.
+        [editsFileParser parse];
     } else {
         [self doneApplyingEdits];
     }

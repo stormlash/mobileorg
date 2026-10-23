@@ -111,22 +111,27 @@ import Foundation
   }
 
   func requestFinished(_ context: TransferContext) {
+    // The delegate chain (parse, checksums, edits) mutates the main-queue
+    // Core Data context; running it here on the session queue raced the main
+    // thread and crashed under concurrent-store validation. Serialize the
+    // whole state machine onto the main queue, including the next-transfer
+    // dispatch, so transfers stay strictly ordered behind parsing.
     DispatchQueue.main.async(execute: {
       UIApplication.shared.isNetworkActivityIndicatorVisible = false
+      if !context.success && context.abortOnFailure {
+        self.transfers.removeAll()
+      }
+
+      if context.success {
+        context.delegate.transferComplete!(context)
+      } else {
+        context.delegate.transferFailed!(context)
+      }
+
+      self.active = false
+      self.activeTransfer = nil
+      self.dispatchNextTransfer()
     })
-    if !context.success && context.abortOnFailure {
-      transfers.removeAll()
-    }
-
-    if context.success {
-      context.delegate.transferComplete!(context)
-    } else {
-      context.delegate.transferFailed!(context)
-    }
-
-    active = false
-    self.activeTransfer = nil
-    dispatchNextTransfer()
   }
 
   func pause() {

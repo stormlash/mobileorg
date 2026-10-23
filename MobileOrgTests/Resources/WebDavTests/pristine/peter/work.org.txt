@@ -1,0 +1,16 @@
+* Client Engagements
+** NEXT Storm panel quoting tool
+*** NEXT Sketch the quoting spreadsheet columns
+    :ID: 22222222-2222-4222-8222-222222222221
+    Columns: span count, panel width, cut list, waste factor.
+*** TODO Confirm panel lead times with the supplier
+    :ID: 22222222-2222-4222-8222-222222222222
+*** DONE Send the pilot pricing to Dana
+    :ID: 22222222-2222-4222-8222-222222222223
+** Acme contract archive
+*** 2024 master services agreement notes
+    Rate card locked through March. Renewal window opens in February.
+*** Insurance certificate checklist
+** WAITING Permit sign-off for the Bell Road site
+*** WAITING Follow up with the county desk
+    :ID: 22222222-2222-4222-8222-222222222224

@@ -45,12 +45,20 @@ typedef enum {
 
     NSMutableArray *downloadedFiles;
 
+    NSString *downloadedEditsFilename;
+
     NSString *transferState;
     NSString *transferFilename;
     int progressTotal;
     int progressCurrent;
 
     bool changedEditsFile;
+
+    // Guards against overlapping sync entrypoints (e.g. a user-driven sync
+    // while a background one is mid-transfer): the transfer pipeline is a
+    // single shared state machine, so concurrent syncs would interleave
+    // transfer contexts from two separate runs.
+    bool syncInFlight;
 }
 
 @property (nonatomic, copy) NSString *transferState;

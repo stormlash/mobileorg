@@ -19,7 +19,6 @@ env:
   # workflow was added; pinned via DEVELOPER_DIR so a future change of the
   # image's default Xcode cannot drift the toolchain under us silently.
   DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
-  SIMULATOR_DESTINATION: 'platform=iOS Simulator,name=iPhone 17,OS=26.5'
 
 jobs:
   test:
@@ -32,6 +31,35 @@ jobs:
           # The "Update Bundle Version Script" build phase runs
           # `git rev-list HEAD --count` — it needs full history.
           fetch-depth: 0
+
+      - name: Resolve simulator destination
+        run: |
+          set -euo pipefail
+          # Device names and runtime versions shift with runner-image rolls
+          # (image 20261013.0424 dropped the pinned "iPhone 17, OS=26.5"
+          # pairing); pick the newest installed iOS runtime that has an
+          # iPhone instead of pinning either.
+          python3 - <<'PY'
+          import json, os, subprocess
+          data = json.loads(subprocess.check_output(
+              ["xcrun", "simctl", "list", "devices", "available", "--json"]))
+          rows = []
+          for runtime, devices in data["devices"].items():
+              if not runtime.startswith("com.apple.CoreSimulator.SimRuntime.iOS-"):
+                  continue
+              os_version = runtime.split("com.apple.CoreSimulator.SimRuntime.iOS-", 1)[-1].replace("-", ".")
+              rows += [(os_version, d["name"]) for d in devices
+                       if d.get("isAvailable") and d["name"].startswith("iPhone")]
+          rows.sort(key=lambda r: (tuple(map(int, r[0].split("."))), r[1]), reverse=True)
+          if not rows:
+              subprocess.run(["xcrun", "simctl", "list", "devices", "available"])
+              raise SystemExit("No available iPhone simulator device found")
+          os_version, name = rows[0]
+          destination = f"platform=iOS Simulator,name={name},OS={os_version}"
+          with open(os.environ["GITHUB_ENV"], "a") as env:
+              env.write(f"SIMULATOR_DESTINATION={destination}\n")
+          print(f"Resolved destination: {destination}")
+          PY
 
       - name: Cache SwiftPM
         uses: actions/cache@v4
@@ -66,22 +94,48 @@ jobs:
           if-no-files-found: ignore
 
   test-webdav:
-    name: WebDAV sync tests (All Tests scheme, non-blocking)
+    name: WebDAV sync tests (All Tests scheme)
     runs-on: macos-26
     timeout-minutes: 30
-    # Transitional non-blocking lane pending the regression-harness task:
-    # nine CI runs (see PR #1) show the WebDAV suite is statefully coupled
-    # across tests — the shared host-app process (SyncManager/
-    # TransferManager singletons, shared Core Data context and UI observers)
-    # and mutations the sync tests leave in the fixture content — matching
-    # the fork audit's documented order-dependency and shared-MOC risks.
-    # The job keeps running and reporting; the regression-harness task owns
-    # stabilizing the suite and re-enabling this as a merge gate.
-    continue-on-error: true
+    # Required merge gate. Originally landed non-blocking (PR #1) because
+    # the legacy suite was statefully coupled across tests; the regression
+    # harness (PR #5) replaced that suite with per-test fixture resets,
+    # deterministic golden fixtures, and stable-green evidence (three
+    # consecutive green executions of the same head: run 39884178619 plus
+    # two full reruns). This lane now blocks merges like the unit lane.
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Resolve simulator destination
+        run: |
+          set -euo pipefail
+          # Device names and runtime versions shift with runner-image rolls
+          # (image 20261013.0424 dropped the pinned "iPhone 17, OS=26.5"
+          # pairing); pick the newest installed iOS runtime that has an
+          # iPhone instead of pinning either.
+          python3 - <<'PY'
+          import json, os, subprocess
+          data = json.loads(subprocess.check_output(
+              ["xcrun", "simctl", "list", "devices", "available", "--json"]))
+          rows = []
+          for runtime, devices in data["devices"].items():
+              if not runtime.startswith("com.apple.CoreSimulator.SimRuntime.iOS-"):
+                  continue
+              os_version = runtime.split("com.apple.CoreSimulator.SimRuntime.iOS-", 1)[-1].replace("-", ".")
+              rows += [(os_version, d["name"]) for d in devices
+                       if d.get("isAvailable") and d["name"].startswith("iPhone")]
+          rows.sort(key=lambda r: (tuple(map(int, r[0].split("."))), r[1]), reverse=True)
+          if not rows:
+              subprocess.run(["xcrun", "simctl", "list", "devices", "available"])
+              raise SystemExit("No available iPhone simulator device found")
+          os_version, name = rows[0]
+          destination = f"platform=iOS Simulator,name={name},OS={os_version}"
+          with open(os.environ["GITHUB_ENV"], "a") as env:
+              env.write(f"SIMULATOR_DESTINATION={destination}\n")
+          print(f"Resolved destination: {destination}")
+          PY
 
       - name: Cache SwiftPM
         uses: actions/cache@v4
@@ -135,6 +189,7 @@ jobs:
             -scheme 'All Tests' \
             -destination "$SIMULATOR_DESTINATION" \
             -only-testing:MobileOrgTests/WebDavTests \
+            -only-testing:MobileOrgTests/WebDavSyncContractTests \
             CODE_SIGNING_ALLOWED=NO \
             2>&1 | tee /tmp/xcodebuild-webdav.log | xcbeautify
 

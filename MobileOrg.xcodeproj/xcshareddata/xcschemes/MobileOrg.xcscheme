@@ -50,6 +50,9 @@
                <Test
                   Identifier = "WebDavTests">
                </Test>
+               <Test
+                  Identifier = "WebDavSyncContractTests">
+               </Test>
             </SkippedTests>
          </TestableReference>
       </Testables>

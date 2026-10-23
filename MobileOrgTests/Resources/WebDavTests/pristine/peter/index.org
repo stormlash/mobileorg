@@ -1,0 +1,12 @@
+#+TITLE: Peter's MobileOrg staging area (SYNTHETIC TEST FIXTURE)
+# Generated test data for the WebDAV regression harness. Mirrors the owner's
+# real-world shape: home/work categories holding epic projects with tasks,
+# plus a scratchpad inbox where raw captures land before they are filed.
+# Regenerate checksums.dat and golden-manifest.json with
+# Tools/fixtures/build_golden_fixtures.py after editing these files.
+#+TODO: NEXT TODO WAITING SOMEDAY | DONE CANCELLED
+#+ALLPRIORITIES: A B C
+
+* [[file:home.org.txt][Home]]
+* [[file:work.org.txt][Work]]
+* [[file:scratchpad.org.txt][Scratchpad]]

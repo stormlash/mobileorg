@@ -98,11 +98,17 @@ final class WebDavTests: WebDavSyncTestCase {
     syncAndWait()
     XCTAssertEqual(node.tags, ":Test456:")
 
+    // Clear through the app's real removal path. TagEditController's row
+    // tap toggles the tag off and snapshots the result into the edit
+    // action. (commitNewTag with an empty string would instead call
+    // addTag:@"" which APPENDS a degenerate empty tag — the pre-revival
+    // test's "::" expectation only held while the broken pipeline never
+    // applied tags at all.)
     let removeEditor = TagEditController(node: node)
-    removeEditor?.recentTagString = ""
-    removeEditor?.commitNewTag()
+    node.toggleTag("Test456")
+    removeEditor?.editAction?.updatedValue = node.tags ?? ""
     Save()
-    XCTAssertEqual(node.tags, "::")
+    XCTAssertEqual(node.tags, "")
 
     let cutoff = try latestSequence(after: 0)
     syncAndWait()
@@ -113,6 +119,6 @@ final class WebDavTests: WebDavSyncTestCase {
     let window = try fixtureRequests(since: cutoff)
     XCTAssertEqual(window.filter { $0.method == "PUT" && $0.path == "/mobileorg.org" }.count, 1,
                    "the tag removal must upload exactly one edits-file PUT (saw \(window))")
-    XCTAssertEqual(syncedNode.tags, "::")
+    XCTAssertEqual(syncedNode.tags, "")
   }
 }

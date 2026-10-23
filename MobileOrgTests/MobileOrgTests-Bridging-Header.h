@@ -24,4 +24,5 @@
 #import "DataUtils.h"
 #import "Settings.h"
 #import "TagEditController.h"
+#import "LocalEditAction.h"
 #import "ChecksumFileParser.h"

@@ -94,18 +94,15 @@ jobs:
           if-no-files-found: ignore
 
   test-webdav:
-    name: WebDAV sync tests (All Tests scheme, non-blocking)
+    name: WebDAV sync tests (All Tests scheme)
     runs-on: macos-26
     timeout-minutes: 30
-    # Transitional non-blocking lane pending the regression-harness task:
-    # nine CI runs (see PR #1) show the WebDAV suite is statefully coupled
-    # across tests — the shared host-app process (SyncManager/
-    # TransferManager singletons, shared Core Data context and UI observers)
-    # and mutations the sync tests leave in the fixture content — matching
-    # the fork audit's documented order-dependency and shared-MOC risks.
-    # The job keeps running and reporting; the regression-harness task owns
-    # stabilizing the suite and re-enabling this as a merge gate.
-    continue-on-error: true
+    # Required merge gate. Originally landed non-blocking (PR #1) because
+    # the legacy suite was statefully coupled across tests; the regression
+    # harness (PR #5) replaced that suite with per-test fixture resets,
+    # deterministic golden fixtures, and stable-green evidence (three
+    # consecutive green executions of the same head: run 39884178619 plus
+    # two full reruns). This lane now blocks merges like the unit lane.
     steps:
       - uses: actions/checkout@v4
         with:

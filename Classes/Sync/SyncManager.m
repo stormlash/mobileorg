@@ -65,6 +65,15 @@
 // Singleton instance
 static SyncManager *gInstance = NULL;
 
+// Proof-run instrumentation: wall seconds spent in the import step for
+// changed Org files (delete+parse on the pre-incremental path; parse+apply+save
+// on the incremental path). Reset and read by SyncTimingCaptureTests.
+static double gImportSecondsTotal = 0.0;
+
+static void SyncImportSecondsAdd(double seconds) {
+    gImportSecondsTotal += seconds;
+}
+
 @implementation SyncManager
 
 @synthesize transferState;
@@ -78,6 +87,14 @@ static SyncManager *gInstance = NULL;
             gInstance = [[self alloc] init];
     }
     return gInstance;
+}
+
++ (void)resetImportSeconds {
+    gImportSecondsTotal = 0.0;
+}
+
++ (double)totalImportSeconds {
+    return gImportSecondsTotal;
 }
 
 - (id)init {
@@ -808,7 +825,12 @@ static SyncManager *gInstance = NULL;
             // the tree emptied out when a download is interrupted mid-flight.
             DeleteNodesWithFilename(orgFilename);
 
+            // Time the whole import step (delete + parse today; parse + diff
+            // apply + save once incremental import lands) for the timing
+            // capture on both fixture profiles.
+            CFAbsoluteTime importStart = CFAbsoluteTimeGetCurrent();
             [self processOrgFile:orgFilename withLocalFile:[context localFile]];
+            SyncImportSecondsAdd(CFAbsoluteTimeGetCurrent() - importStart);
             break;
         }
         case SyncManagerTransferStateIdle:

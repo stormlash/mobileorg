@@ -66,6 +66,12 @@ typedef enum {
 @property (nonatomic) int progressTotal;
 @property (nonatomic) int progressCurrent;
 
+// Proof-run instrumentation for the sync timing capture: accumulated wall
+// seconds spent importing changed Org files (the import step inside
+// transferComplete) since the last reset. Read by SyncTimingCaptureTests.
++ (void)resetImportSeconds;
++ (double)totalImportSeconds;
+
 + (SyncManager*)instance;
 - (void)sync;
 - (void)abort;

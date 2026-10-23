@@ -53,6 +53,9 @@
                <Test
                   Identifier = "WebDavSyncContractTests">
                </Test>
+               <Test
+                  Identifier = "SyncTimingCaptureTests">
+               </Test>
             </SkippedTests>
          </TestableReference>
       </Testables>

@@ -190,8 +190,17 @@ jobs:
             -destination "$SIMULATOR_DESTINATION" \
             -only-testing:MobileOrgTests/WebDavTests \
             -only-testing:MobileOrgTests/WebDavSyncContractTests \
+            -only-testing:MobileOrgTests/SyncTimingCaptureTests \
             CODE_SIGNING_ALLOWED=NO \
             2>&1 | tee /tmp/xcodebuild-webdav.log | xcbeautify
+
+      - name: Record timing capture
+        if: always()
+        run: |
+          # The proof-run timing capture (SyncTimingCaptureTests) prints one
+          # TIMING line per measured sync from the raw xcodebuild log; surface
+          # them in the job summary whether the lane is green or red.
+          grep -h "TIMING " /tmp/xcodebuild-webdav.log | tee /dev/stderr >> "$GITHUB_STEP_SUMMARY" || true
 
       - name: Stop WebDAV fixture
         if: always()

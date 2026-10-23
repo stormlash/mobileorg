@@ -99,10 +99,13 @@ jobs:
 
       # Cloud signing: no certificate or profile lives in the repo. The app's
       # entitlements file is an EMPTY dict, so -allowProvisioningUpdates with
-      # the API key fetches a plain (no-capability) profile. The AppStore
-      # configuration keeps CFBundleVersion numeric: the bundle-version build
-      # phase stamps `git rev-list HEAD --count` (Debug appends the branch
-      # name; App Store Connect rejects non-numeric build numbers).
+      # the API key fetches a plain (no-capability) profile. CFBundleVersion
+      # comes from the CURRENT_PROJECT_VERSION override below, which Info.plist
+      # processing substitutes into the built plist, the binary, and the dSYM.
+      # (The legacy "Update Bundle Version Script" phase stamps the built plist
+      # too, but Info.plist processing runs after it and overwrites the stamp —
+      # the override is the authoritative source. App Store Connect rejects
+      # non-numeric build numbers, so Debug's branch suffix never reaches here.)
       - name: Archive (AppStore configuration)
         if: steps.creds.outputs.delivery_enabled == 'true'
         env:
@@ -116,6 +119,7 @@ jobs:
             -configuration AppStore \
             -destination 'generic/platform=iOS' \
             -archivePath build/MobileOrg.xcarchive \
+            CURRENT_PROJECT_VERSION="$(git rev-list HEAD --count)" \
             -allowProvisioningUpdates \
             -authenticationKeyPath "$HOME/private_keys/AuthKey_${ASC_KEY_ID}.p8" \
             -authenticationKeyID "$ASC_KEY_ID" \

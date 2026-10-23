@@ -30,7 +30,7 @@ class ChecksumFileParserTests: XCTestCase {
     let parser = ChecksumFileParser()
     let path = writeFile("90bc512f84e7da94a1da89daea0c01d8  home.org.txt\n")
     parser.parse(path)
-    XCTAssertEqual(parser.checksumPairs["home.org.txt"],
+    XCTAssertEqual(parser.checksumPairs["home.org.txt"] as? String,
                    "90bc512f84e7da94a1da89daea0c01d8")
     XCTAssertEqual(parser.checksumPairs.count, 1)
   }
@@ -40,7 +40,7 @@ class ChecksumFileParserTests: XCTestCase {
     let path = writeFile(
       "4c05152c39bcc402ea99851c01e3849060a9d3a1  MainWindow.xib\n")
     parser.parse(path)
-    XCTAssertEqual(parser.checksumPairs["MainWindow.xib"],
+    XCTAssertEqual(parser.checksumPairs["MainWindow.xib"] as? String,
                    "4c05152c39bcc402ea99851c01e3849060a9d3a1")
   }
 
@@ -48,7 +48,7 @@ class ChecksumFileParserTests: XCTestCase {
     let parser = ChecksumFileParser()
     let path = writeFile("MD5 (Icon.png) = 476d45ce45fc0658bbda13137bc60205\n")
     parser.parse(path)
-    XCTAssertEqual(parser.checksumPairs["Icon.png"],
+    XCTAssertEqual(parser.checksumPairs["Icon.png"] as? String,
                    "476d45ce45fc0658bbda13137bc60205")
   }
 
@@ -64,11 +64,11 @@ class ChecksumFileParserTests: XCTestCase {
     ].joined(separator: "\n") + "\n")
     parser.parse(path)
     XCTAssertEqual(parser.checksumPairs.count, 3)
-    XCTAssertEqual(parser.checksumPairs["home.org.txt"],
+    XCTAssertEqual(parser.checksumPairs["home.org.txt"] as? String,
                    "90bc512f84e7da94a1da89daea0c01d8")
-    XCTAssertEqual(parser.checksumPairs["MainWindow.xib"],
+    XCTAssertEqual(parser.checksumPairs["MainWindow.xib"] as? String,
                    "4c05152c39bcc402ea99851c01e3849060a9d3a1")
-    XCTAssertEqual(parser.checksumPairs["Icon.png"],
+    XCTAssertEqual(parser.checksumPairs["Icon.png"] as? String,
                    "476d45ce45fc0658bbda13137bc60205")
   }
 
@@ -78,7 +78,7 @@ class ChecksumFileParserTests: XCTestCase {
     parser.parse(writeFile("9304a8c4468ca686dbd106ed83b8079d  work.org.txt\n"))
     XCTAssertEqual(parser.checksumPairs.count, 1)
     XCTAssertNil(parser.checksumPairs["home.org.txt"])
-    XCTAssertEqual(parser.checksumPairs["work.org.txt"],
+    XCTAssertEqual(parser.checksumPairs["work.org.txt"] as? String,
                    "9304a8c4468ca686dbd106ed83b8079d")
   }
 
